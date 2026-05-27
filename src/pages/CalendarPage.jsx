@@ -25,7 +25,7 @@ const schedules = {
 
   "2026-05-25": [
     {
-      name: "최유리",
+      name: "최유정",
       type: "오픈",
       color: "#20c997",
     },
