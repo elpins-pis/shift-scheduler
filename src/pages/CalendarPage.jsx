@@ -1,37 +1,16 @@
 import { useState } from "react";
 import dayjs from "dayjs";
-import { FiTrash2 } from "react-icons/fi";
+import { FiTrash2, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 
-const initialSchedules = {
-  "2026-05-20": [
-    { name: "김민수", type: "오전", color: "#4dabf7" },
-    { name: "박지영", type: "OFF", color: "#868e96" },
-  ],
-  "2026-05-21": [{ name: "이준호", type: "야간", color: "#845ef7" }],
-  "2026-05-25": [
-    { name: "최유정", type: "오픈", color: "#20c997" },
-    { name: "박민주", type: "오전", color: "#4dabf7" },
-    { name: "정수민", type: "마감", color: "#ff922b" },
-    { name: "한지호", type: "OFF", color: "#868e96" },
-  ],
-};
-
-const employees = [
-  { id: 1, name: "김민수" },
-  { id: 2, name: "박지영" },
-  { id: 3, name: "이준호" },
-  { id: 4, name: "최유리" },
-  { id: 5, name: "정수민" },
-];
-
-function CalendarPage() {
+function CalendarPage({ shiftTypes, employees, schedules, setSchedules }) {
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [selectedDate, setSelectedDate] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formDate, setFormDate] = useState(null);
-  const [schedules, setSchedules] = useState(initialSchedules);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedShiftType, setSelectedShiftType] = useState("오전");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("13:00");
   const [editIndex, setEditIndex] = useState(null);
 
   const startOfMonth = currentDate.startOf("month");
@@ -82,13 +61,15 @@ function CalendarPage() {
   };
 
   const getShiftColor = (type) => {
-    if (type === "오전") return "#4dabf7";
-    if (type === "오후") return "#20c997";
-    if (type === "야간") return "#845ef7";
-    if (type === "OFF") return "#868e96";
-    if (type === "연차") return "#ff922b";
+    const shiftType = shiftTypes.find((item) => item.name === type);
 
-    return "#3182f6";
+    return shiftType ? shiftType.color : "#3182f6";
+  };
+
+  const getShiftIcon = (type) => {
+    const shiftType = shiftTypes.find((item) => item.name === type);
+
+    return shiftType ? shiftType.icon : "•";
   };
 
   const handleSaveSchedule = () => {
@@ -105,7 +86,10 @@ function CalendarPage() {
     const newSchedule = {
       name: selectedEmployee,
       type: selectedShiftType,
+      icon: getShiftIcon(selectedShiftType),
       color: getShiftColor(selectedShiftType),
+      startTime,
+      endTime,
     };
 
     setSchedules((prev) => {
@@ -124,7 +108,8 @@ function CalendarPage() {
     });
 
     setSelectedEmployee("");
-    setSelectedShiftType("오전");
+    setStartTime("09:00");
+    setEndTime("13:00");
     setEditIndex(null);
     setIsFormOpen(false);
   };
@@ -149,6 +134,8 @@ function CalendarPage() {
     setEditIndex(index);
     setSelectedDate(null);
     setIsFormOpen(true);
+    setStartTime(schedule.startTime || "09:00");
+    setEndTime(schedule.endTime || "13:00");
   };
 
   return (
@@ -161,9 +148,43 @@ function CalendarPage() {
           marginBottom: "20px",
         }}
       >
-        <button onClick={movePrevMonth}>〈</button>
-        <h2>{currentDate.format("YYYY년 M월")}</h2>
-        <button onClick={moveNextMonth}>〉</button>
+        <button
+          onClick={movePrevMonth}
+          style={{
+            width: "40px",
+            height: "40px",
+            borderRadius: "12px",
+            border: "1px solid #e9ecef",
+            background: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <FiChevronLeft size={22} />
+        </button>
+
+        <h2 style={{ fontSize: "20px", fontWeight: "700" }}>
+          {currentDate.format("YYYY년 M월")}
+        </h2>
+
+        <button
+          onClick={moveNextMonth}
+          style={{
+            width: "40px",
+            height: "40px",
+            borderRadius: "12px",
+            border: "1px solid #e9ecef",
+            background: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <FiChevronRight size={22} />
+        </button>
       </div>
 
       <div
@@ -250,14 +271,14 @@ function CalendarPage() {
                     <div
                       key={idx}
                       style={{
-                        background: schedule.color,
-                        color: "#fff",
-                        borderRadius: "6px",
-                        padding: "2px 4px",
-                        fontSize: "11px",
+                        color: "#222",
+                        fontSize: "10px",
+                        lineHeight: "1.2",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      {schedule.name} {schedule.type}
+                      {schedule.icon || getShiftIcon(schedule.type)}{" "}
+                      {schedule.name}{" "}
                     </div>
                   ))}
                 </div>
@@ -344,7 +365,21 @@ function CalendarPage() {
                         cursor: "pointer",
                       }}
                     >
-                      <div style={{ fontWeight: "bold" }}>{schedule.name}</div>
+                      <div style={{ fontWeight: "bold" }}>
+                        {schedule.name}
+                        {schedule.startTime && schedule.endTime && (
+                          <span
+                            style={{
+                              marginLeft: "8px",
+                              fontSize: "12px",
+                              color: "#868e96",
+                              fontWeight: "400",
+                            }}
+                          >
+                            {schedule.startTime} ~ {schedule.endTime}
+                          </span>
+                        )}
+                      </div>{" "}
                     </div>
 
                     <div
@@ -356,18 +391,19 @@ function CalendarPage() {
                     >
                       <div
                         style={{
-                          width: "28px",
+                          minWidth: "52px",
                           height: "28px",
                           borderRadius: "999px",
-                          background: schedule.color,
+
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          color: "#fff",
-                          fontSize: "10px",
+
+                          fontSize: "13px",
                           fontWeight: "bold",
                         }}
                       >
+                        {schedule.icon || getShiftIcon(schedule.type)}{" "}
                         {schedule.type}
                       </div>
 
@@ -504,7 +540,18 @@ function CalendarPage() {
 
               <select
                 value={selectedShiftType}
-                onChange={(e) => setSelectedShiftType(e.target.value)}
+                onChange={(e) => {
+                  const selectedType = shiftTypes.find(
+                    (item) => item.name === e.target.value,
+                  );
+
+                  setSelectedShiftType(e.target.value);
+
+                  if (selectedType) {
+                    setStartTime(selectedType.startTime || "");
+                    setEndTime(selectedType.endTime || "");
+                  }
+                }}
                 style={{
                   width: "100%",
                   padding: "12px",
@@ -512,12 +559,54 @@ function CalendarPage() {
                   border: "1px solid #ddd",
                 }}
               >
-                <option>오전</option>
-                <option>오후</option>
-                <option>야간</option>
-                <option>OFF</option>
-                <option>연차</option>
+                {shiftTypes.map((shiftType) => (
+                  <option key={shiftType.name} value={shiftType.name}>
+                    {shiftType.name}
+                  </option>
+                ))}
               </select>
+              <div style={{ marginTop: "20px", marginBottom: "16px" }}>
+                {" "}
+                <div style={{ marginBottom: "8px", fontSize: "14px" }}>
+                  시작시간
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      borderRadius: "10px",
+                      border: "1px solid #ddd",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginTop: "8px", marginBottom: "24px" }}>
+                {" "}
+                <div style={{ marginBottom: "20px" }}>
+                  <div style={{ marginBottom: "8px", fontSize: "14px" }}>
+                    종료시간
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: "12px",
+                        borderRadius: "10px",
+                        border: "1px solid #ddd",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <button
