@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { FiMenu, FiTrash2 } from "react-icons/fi";
 
 function EmployeesPage({ employees, setEmployees }) {
   const [isOpen, setIsOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("USER");
+  const [draggedEmployeeId, setDraggedEmployeeId] = useState(null);
 
   const handleAddEmployee = () => {
     if (!newName.trim()) {
@@ -36,6 +38,21 @@ function EmployeesPage({ employees, setEmployees }) {
 
   const handleDeleteEmployee = (id) => {
     setEmployees((prev) => prev.filter((employee) => employee.id !== id));
+  };
+
+  const handleDropEmployee = (targetId) => {
+    if (!draggedEmployeeId || draggedEmployeeId === targetId) return;
+
+    setEmployees((prev) => {
+      const fromIndex = prev.findIndex(
+        (employee) => employee.id === draggedEmployeeId,
+      );
+      const toIndex = prev.findIndex((employee) => employee.id === targetId);
+
+      if (fromIndex === -1 || toIndex === -1) return prev;
+
+      return moveItem(prev, fromIndex, toIndex);
+    });
   };
 
   return (
@@ -79,6 +96,18 @@ function EmployeesPage({ employees, setEmployees }) {
         {employees.map((employee) => (
           <div
             key={employee.id}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", String(employee.id));
+              setDraggedEmployeeId(employee.id);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+            }}
+            onDrop={() => handleDropEmployee(employee.id)}
+            onDragEnd={() => setDraggedEmployeeId(null)}
             style={{
               display: "flex",
               justifyContent: "space-between",
@@ -87,17 +116,35 @@ function EmployeesPage({ employees, setEmployees }) {
               borderRadius: "12px",
               padding: "12px",
               marginBottom: "8px",
+              cursor: "grab",
+              opacity: draggedEmployeeId === employee.id ? 0.45 : 1,
             }}
           >
-            <div>
-              <div style={{ fontWeight: "bold" }}>{employee.name}</div>
-              <div style={{ fontSize: "13px", color: "#666" }}>
-                {employee.role === "ADMIN" ? "관리자" : "사용자"}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              <FiMenu
+                aria-label="순서 변경"
+                size={18}
+                color="#adb5bd"
+                style={{ flexShrink: 0 }}
+              />
+
+              <div>
+                <div style={{ fontWeight: "bold" }}>{employee.name}</div>
+                <div style={{ fontSize: "13px", color: "#666" }}>
+                  {employee.role === "ADMIN" ? "관리자" : "사용자"}
+                </div>
               </div>
             </div>
 
             <button
               onClick={() => handleDeleteEmployee(employee.id)}
+              aria-label={`${employee.name} 삭제`}
               style={{
                 border: "none",
                 background: "#fff5f5",
@@ -106,9 +153,12 @@ function EmployeesPage({ employees, setEmployees }) {
                 width: "32px",
                 height: "32px",
                 cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              삭제
+              <FiTrash2 size={16} />
             </button>
           </div>
         ))}
@@ -200,6 +250,15 @@ function EmployeesPage({ employees, setEmployees }) {
       )}
     </div>
   );
+}
+
+function moveItem(items, fromIndex, toIndex) {
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(fromIndex, 1);
+
+  nextItems.splice(toIndex, 0, movedItem);
+
+  return nextItems;
 }
 
 export default EmployeesPage;

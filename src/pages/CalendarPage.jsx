@@ -72,6 +72,12 @@ function CalendarPage({ shiftTypes, employees, schedules, setSchedules }) {
     return shiftType ? shiftType.icon : "•";
   };
 
+  const getShiftCategory = (type) => {
+    const shiftType = shiftTypes.find((item) => item.name === type);
+
+    return shiftType ? shiftType.category || "WORK" : "WORK";
+  };
+
   const handleSaveSchedule = () => {
     if (!formDate) {
       alert("날짜가 선택되지 않았습니다.");
@@ -88,6 +94,7 @@ function CalendarPage({ shiftTypes, employees, schedules, setSchedules }) {
       type: selectedShiftType,
       icon: getShiftIcon(selectedShiftType),
       color: getShiftColor(selectedShiftType),
+      category: getShiftCategory(selectedShiftType),
       startTime,
       endTime,
     };

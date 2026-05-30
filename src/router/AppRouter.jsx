@@ -15,6 +15,7 @@ const initialShiftTypes = [
     color: "#4dabf7",
     startTime: "09:00",
     endTime: "13:00",
+    category: "WORK",
   },
   {
     name: "오후",
@@ -22,6 +23,7 @@ const initialShiftTypes = [
     color: "#20c997",
     startTime: "13:00",
     endTime: "18:00",
+    category: "WORK",
   },
   {
     name: "야간",
@@ -29,6 +31,7 @@ const initialShiftTypes = [
     color: "#845ef7",
     startTime: "22:00",
     endTime: "07:00",
+    category: "WORK",
   },
   {
     name: "OFF",
@@ -36,6 +39,7 @@ const initialShiftTypes = [
     color: "#868e96",
     startTime: "",
     endTime: "",
+    category: "OFF",
   },
   {
     name: "연차",
@@ -43,6 +47,7 @@ const initialShiftTypes = [
     color: "#ff922b",
     startTime: "",
     endTime: "",
+    category: "VACATION",
   },
 ];
 const initialEmployees = [
@@ -60,6 +65,7 @@ const initialSchedules = {
       color: "#4dabf7",
       startTime: "09:00",
       endTime: "13:00",
+      category: "WORK",
     },
     {
       name: "박지영",
@@ -67,6 +73,7 @@ const initialSchedules = {
       color: "#868e96",
       startTime: "",
       endTime: "",
+      category: "OFF",
     },
   ],
   "2026-05-21": [
@@ -76,6 +83,7 @@ const initialSchedules = {
       color: "#845ef7",
       startTime: "22:00",
       endTime: "07:00",
+      category: "WORK",
     },
   ],
 };
@@ -116,6 +124,8 @@ function AppRouter() {
               <SettingsPage
                 shiftTypes={shiftTypes}
                 setShiftTypes={setShiftTypes}
+                schedules={schedules}
+                setSchedules={setSchedules}
               />
             }
           />

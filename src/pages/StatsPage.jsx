@@ -1,10 +1,593 @@
-function StatsPage() {
+import { useState } from "react";
+import dayjs from "dayjs";
+
+const NIGHT_WORK_RANGES = [
+  [0, 6 * 60],
+  [22 * 60, 30 * 60],
+];
+
+function StatsPage({ schedules = {} }) {
+  const [mode, setMode] = useState("month");
+  const [selectedWeekStartDate, setSelectedWeekStartDate] = useState(
+    getWeekStart(dayjs().format("YYYY-MM-DD")).format("YYYY-MM-DD"),
+  );
+  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
+  const [startDate, setStartDate] = useState(
+    dayjs().startOf("month").format("YYYY-MM-DD"),
+  );
+  const [endDate, setEndDate] = useState(
+    dayjs().endOf("month").format("YYYY-MM-DD"),
+  );
+
+  const selectedWeekStart = dayjs(selectedWeekStartDate);
+  const selectedWeekEnd = selectedWeekStart.add(6, "day");
+  const periodStart =
+    mode === "week"
+      ? selectedWeekStart.format("YYYY-MM-DD")
+      : mode === "range"
+        ? startDate
+        : null;
+  const periodEnd =
+    mode === "week"
+      ? selectedWeekEnd.format("YYYY-MM-DD")
+      : mode === "range"
+        ? endDate
+        : null;
+
+  const filteredSchedules = Object.entries(schedules).flatMap(
+    ([date, dailySchedules]) => {
+      const isIncluded =
+        mode === "month"
+          ? date.startsWith(selectedMonth)
+          : date >= periodStart && date <= periodEnd;
+
+      if (!isIncluded) return [];
+
+      return dailySchedules.map((schedule) => ({
+        ...schedule,
+        date,
+      }));
+    },
+  );
+
+  const stats = filteredSchedules.reduce(
+    (acc, schedule) => {
+      const employeeName = schedule.name || "이름 없음";
+      const category = getScheduleCategory(schedule);
+      const workMinutes = getWorkMinutes(schedule);
+      const nightWorkMinutes = getNightWorkMinutes(schedule);
+
+      if (!acc.byEmployee[employeeName]) {
+        acc.byEmployee[employeeName] = {
+          work: 0,
+          workMinutes: 0,
+          nightWorkMinutes: 0,
+          nonWork: 0,
+          nonWorkDetails: {},
+        };
+      }
+
+      if (category === "WORK") {
+        acc.totalWork += 1;
+        acc.totalWorkMinutes += workMinutes;
+        acc.totalNightWorkMinutes += nightWorkMinutes;
+        acc.byEmployee[employeeName].work += 1;
+        acc.byEmployee[employeeName].workMinutes += workMinutes;
+        acc.byEmployee[employeeName].nightWorkMinutes += nightWorkMinutes;
+      } else {
+        const nonWorkLabel = schedule.type || "비근무";
+
+        acc.totalNonWork += 1;
+        acc.totalNonWorkDetails[nonWorkLabel] =
+          (acc.totalNonWorkDetails[nonWorkLabel] || 0) + 1;
+        acc.byEmployee[employeeName].nonWork += 1;
+        acc.byEmployee[employeeName].nonWorkDetails[nonWorkLabel] =
+          (acc.byEmployee[employeeName].nonWorkDetails[nonWorkLabel] || 0) + 1;
+      }
+
+      return acc;
+    },
+    {
+      totalWork: 0,
+      totalWorkMinutes: 0,
+      totalNightWorkMinutes: 0,
+      totalNonWork: 0,
+      totalNonWorkDetails: {},
+      byEmployee: {},
+    },
+  );
+
+  const employeeStats = Object.entries(stats.byEmployee).sort(
+    ([nameA, employeeA], [nameB, employeeB]) => {
+      if (employeeB.workMinutes !== employeeA.workMinutes) {
+        return employeeB.workMinutes - employeeA.workMinutes;
+      }
+
+      if (employeeB.work !== employeeA.work) {
+        return employeeB.work - employeeA.work;
+      }
+
+      return nameA.localeCompare(nameB, "ko");
+    },
+  );
+
+  const periodLabel =
+    mode === "week"
+      ? `${periodStart} ~ ${periodEnd} 주간 통계`
+      : mode === "month"
+        ? `${dayjs(`${selectedMonth}-01`).format("YYYY년 M월")} 통계`
+        : `${periodStart} ~ ${periodEnd} 기간 통계`;
+
+  const summaryCards = [
+    {
+      label: "총 근무",
+      value: `${stats.totalWork}건`,
+      color: "#3182f6",
+      background: "#edf4ff",
+    },
+    {
+      label: "총 근무시간",
+      value: formatMinutes(stats.totalWorkMinutes),
+      color: "#2b8a3e",
+      background: "#ebfbee",
+    },
+    {
+      label: "총 야간",
+      value: formatMinutes(stats.totalNightWorkMinutes),
+      color: "#7048e8",
+      background: "#f3f0ff",
+    },
+    {
+      label: "비근무",
+      value: `${stats.totalNonWork}건`,
+      detail: formatNonWorkDetails(stats.totalNonWorkDetails),
+      color: "#f76707",
+      background: "#fff4e6",
+    },
+  ];
+
   return (
-    <div>
-      <h1>통계</h1>
-      <p>근무시간, 휴무, 연차 통계 화면입니다.</p>
+    <div style={{ padding: "6px" }}>
+      <h1 style={{ fontSize: "22px", marginBottom: "8px" }}>통계</h1>
+
+      <section
+        style={{
+          background: "#fff",
+          border: "1px solid #e9ecef",
+          borderRadius: "14px",
+          padding: "12px",
+          marginBottom: "10px",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "6px",
+            marginBottom: "10px",
+          }}
+        >
+          <button
+            onClick={() => setMode("week")}
+            style={getModeButtonStyle(mode === "week")}
+          >
+            주간 통계
+          </button>
+          <button
+            onClick={() => setMode("month")}
+            style={getModeButtonStyle(mode === "month")}
+          >
+            월별 통계
+          </button>
+          <button
+            onClick={() => setMode("range")}
+            style={getModeButtonStyle(mode === "range")}
+          >
+            기간별 통계
+          </button>
+        </div>
+
+        {mode === "week" ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "6px",
+            }}
+          >
+            <input
+              type="date"
+              value={periodStart}
+              onChange={(e) => setSelectedWeekStartDate(e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              type="date"
+              value={periodEnd}
+              onChange={(e) =>
+                setSelectedWeekStartDate(
+                  dayjs(e.target.value).subtract(6, "day").format("YYYY-MM-DD"),
+                )
+              }
+              style={inputStyle}
+            />
+          </div>
+        ) : mode === "month" ? (
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            style={inputStyle}
+          />
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "6px",
+            }}
+          >
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: "10px",
+            color: "#495057",
+            fontSize: "13px",
+            fontWeight: "700",
+          }}
+        >
+          {periodLabel}
+        </div>
+      </section>
+
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: "6px",
+          marginBottom: "10px",
+        }}
+      >
+        {summaryCards.map((card) => (
+          <SummaryCard key={card.label} card={card} />
+        ))}
+      </section>
+
+      <section
+        style={{
+          background: "#fff",
+          border: "1px solid #e9ecef",
+          borderRadius: "14px",
+          padding: "12px",
+        }}
+      >
+        <h2 style={{ fontSize: "17px", marginBottom: "10px" }}>
+          직원별 통계
+        </h2>
+
+        {employeeStats.length === 0 ? (
+          <div
+            style={{
+              color: "#868e96",
+              background: "#f8f9fb",
+              borderRadius: "12px",
+              padding: "18px",
+              textAlign: "center",
+              fontSize: "14px",
+            }}
+          >
+            선택한 기간에 등록된 스케줄이 없습니다.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              maxHeight: "460px",
+              overflowY: "auto",
+              paddingRight: "2px",
+            }}
+          >
+            {employeeStats.map(([name, employee]) => (
+              <div
+                key={name}
+                style={{
+                  background: "#f8f9fb",
+                  border: "1px solid #edf0f2",
+                  borderRadius: "10px",
+                  padding: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      minWidth: "58px",
+                      fontSize: "15px",
+                      fontWeight: "800",
+                    }}
+                  >
+                    {name}
+                  </div>
+
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                      gap: "4px",
+                    }}
+                  >
+                    <CompactStat
+                      label="근무"
+                      value={`${employee.work}`}
+                      color="#3182f6"
+                    />
+                    <CompactStat
+                      label="시간"
+                      value={formatCompactMinutes(employee.workMinutes)}
+                      color="#2b8a3e"
+                    />
+                    <CompactStat
+                      label="야간"
+                      value={formatCompactMinutes(employee.nightWorkMinutes)}
+                      color="#7048e8"
+                    />
+                    <CompactStat
+                      label="비근무"
+                      value={`${employee.nonWork}`}
+                      color="#f76707"
+                    />
+                  </div>
+                </div>
+
+                {employee.nonWork > 0 && (
+                  <div
+                    style={{
+                      color: "#868e96",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      marginTop: "6px",
+                      lineHeight: "1.3",
+                    }}
+                  >
+                    비근무: {formatNonWorkDetails(employee.nonWorkDetails)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
+}
+
+function getWorkMinutes(schedule) {
+  if (getScheduleCategory(schedule) !== "WORK") return 0;
+  if (!schedule.startTime || !schedule.endTime) return 0;
+
+  const start = parseTimeToMinutes(schedule.startTime);
+  let end = parseTimeToMinutes(schedule.endTime);
+
+  if (start === null || end === null) return 0;
+  if (end <= start) end += 24 * 60;
+
+  return end - start;
+}
+
+function getNightWorkMinutes(schedule) {
+  if (getScheduleCategory(schedule) !== "WORK") return 0;
+  if (!schedule.startTime || !schedule.endTime) return 0;
+
+  const start = parseTimeToMinutes(schedule.startTime);
+  let end = parseTimeToMinutes(schedule.endTime);
+
+  if (start === null || end === null) return 0;
+  if (end <= start) end += 24 * 60;
+
+  return NIGHT_WORK_RANGES.reduce((total, [nightStart, nightEnd]) => {
+    const overlapStart = Math.max(start, nightStart);
+    const overlapEnd = Math.min(end, nightEnd);
+
+    return total + Math.max(overlapEnd - overlapStart, 0);
+  }, 0);
+}
+
+function getScheduleCategory(schedule) {
+  if (schedule.category) return schedule.category;
+  if (schedule.type === "OFF") return "OFF";
+  if (schedule.type === "연차") return "VACATION";
+
+  return "WORK";
+}
+
+function formatNonWorkDetails(details) {
+  const entries = Object.entries(details);
+
+  if (entries.length === 0) return "";
+
+  return entries.map(([label, count]) => `${label} ${count}`).join(" / ");
+}
+
+function getWeekStart(date) {
+  const selectedDate = dayjs(date);
+  const daysFromMonday = (selectedDate.day() + 6) % 7;
+
+  return selectedDate.subtract(daysFromMonday, "day");
+}
+
+function parseTimeToMinutes(time) {
+  const [hour, minute] = time.split(":").map(Number);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+
+  return hour * 60 + minute;
+}
+
+function formatMinutes(minutes) {
+  if (!minutes) return "0시간";
+
+  const hours = Math.floor(minutes / 60);
+  const remainMinutes = minutes % 60;
+
+  if (remainMinutes === 0) return `${hours}시간`;
+
+  return `${hours}시간 ${remainMinutes}분`;
+}
+
+function formatCompactMinutes(minutes) {
+  if (!minutes) return "0h";
+
+  const hours = Math.floor(minutes / 60);
+  const remainMinutes = minutes % 60;
+
+  if (remainMinutes === 0) return `${hours}h`;
+
+  return `${hours}h${remainMinutes}m`;
+}
+
+function SummaryCard({ card }) {
+  return (
+    <div
+      style={{
+        background: card.background,
+        border: "1px solid #e9ecef",
+        borderRadius: "10px",
+        padding: "11px 10px",
+        minHeight: "76px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      <div
+        style={{
+          color: "#495057",
+          fontSize: "11px",
+          fontWeight: "700",
+          lineHeight: "1.35",
+        }}
+      >
+        {card.label}
+      </div>
+      <div
+        style={{
+          color: card.color,
+          fontSize: "21px",
+          fontWeight: "800",
+          lineHeight: "1.15",
+        }}
+      >
+        {card.value}
+      </div>
+      {card.detail && (
+        <div
+          style={{
+            color: "#868e96",
+            fontSize: "10px",
+            fontWeight: "700",
+            marginTop: "4px",
+            lineHeight: "1.2",
+          }}
+        >
+          {card.detail}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompactStat({ label, value, detail, color }) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #edf0f2",
+        borderRadius: "8px",
+        padding: "7px 4px",
+        textAlign: "center",
+        minWidth: 0,
+      }}
+    >
+      <div
+        style={{
+          color: "#868e96",
+          fontSize: "10px",
+          fontWeight: "700",
+          marginBottom: "3px",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          color,
+          fontSize: "14px",
+          fontWeight: "800",
+          lineHeight: "1.15",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {value}
+      </div>
+      {detail && (
+        <div
+          style={{
+            color: "#868e96",
+            fontSize: "9px",
+            fontWeight: "700",
+            lineHeight: "1.1",
+            marginTop: "2px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {detail}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const inputStyle = {
+  width: "100%",
+  padding: "10px",
+  borderRadius: "10px",
+  border: "1px solid #ddd",
+  fontSize: "13px",
+};
+
+function getModeButtonStyle(isActive) {
+  return {
+    border: "none",
+    background: isActive ? "#3182f6" : "#f1f3f5",
+    color: isActive ? "#fff" : "#495057",
+    borderRadius: "10px",
+    padding: "10px",
+    fontWeight: "800",
+    cursor: "pointer",
+  };
 }
 
 export default StatsPage;
