@@ -1,6 +1,11 @@
+import dayjs from "dayjs";
 import BottomNav from "../components/BottomNav";
 
-function MainLayout({ children, shiftTypes = [] }) {
+const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
+
+function MainLayout({ children }) {
+  const today = dayjs();
+
   return (
     <div
       style={{
@@ -13,7 +18,7 @@ function MainLayout({ children, shiftTypes = [] }) {
     >
       <header
         style={{
-          padding: "20px",
+          padding: "18px 20px 16px",
           borderBottom: "1px solid #eee",
         }}
       >
@@ -21,39 +26,29 @@ function MainLayout({ children, shiftTypes = [] }) {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "10px",
-            overflowX: "auto",
           }}
         >
           <div
             style={{
-              fontWeight: "bold",
-              fontSize: "20px",
+              fontWeight: "800",
+              fontSize: "21px",
+              color: "#191f28",
               flexShrink: 0,
             }}
           >
             ShiftMate
           </div>
+        </div>
 
-          {shiftTypes.map((shiftType) => (
-            <div
-              key={shiftType.name}
-              style={{
-                minWidth: "40px",
-                height: "24px",
-                borderRadius: "999px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "13px",
-                fontWeight: "700",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
-            >
-              {shiftType.icon} {shiftType.name}{" "}
-            </div>
-          ))}
+        <div
+          style={{
+            color: "#868e96",
+            fontSize: "12px",
+            fontWeight: "700",
+            marginTop: "4px",
+          }}
+        >
+          {today.format("YYYY년 M월 D일")} {weekdayLabels[today.day()]}요일
         </div>
       </header>
 

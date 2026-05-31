@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { FiMenu, FiTrash2 } from "react-icons/fi";
 
-function EmployeesPage({ employees, setEmployees }) {
+function EmployeesPage({
+  employees,
+  setEmployees,
+  schedules = {},
+  setSchedules,
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("USER");
@@ -37,7 +42,36 @@ function EmployeesPage({ employees, setEmployees }) {
   };
 
   const handleDeleteEmployee = (id) => {
+    const employee = employees.find((item) => item.id === id);
+
+    if (!employee) return;
+
+    const isUsed = Object.values(schedules).some((dailySchedules) =>
+      dailySchedules.some((schedule) => schedule.name === employee.name),
+    );
+    const message = isUsed
+      ? `${employee.name} 직원과 등록된 스케줄을 함께 삭제할까요?`
+      : `${employee.name} 직원을 삭제할까요?`;
+    const confirmed = window.confirm(message);
+
+    if (!confirmed) return;
+
     setEmployees((prev) => prev.filter((employee) => employee.id !== id));
+
+    if (isUsed) {
+      setSchedules((prev) =>
+        Object.fromEntries(
+          Object.entries(prev)
+            .map(([date, dailySchedules]) => [
+              date,
+              dailySchedules.filter(
+                (schedule) => schedule.name !== employee.name,
+              ),
+            ])
+            .filter(([, dailySchedules]) => dailySchedules.length > 0),
+        ),
+      );
+    }
   };
 
   const handleDropEmployee = (targetId) => {
@@ -57,8 +91,6 @@ function EmployeesPage({ employees, setEmployees }) {
 
   return (
     <div>
-      <h1 style={{ fontSize: "22px", marginBottom: "20px" }}>직원 관리</h1>
-
       <div
         style={{
           background: "#fff",
@@ -75,7 +107,7 @@ function EmployeesPage({ employees, setEmployees }) {
             marginBottom: "16px",
           }}
         >
-          <h2 style={{ fontSize: "18px" }}>직원 목록</h2>
+          <h2 style={{ fontSize: "18px" }}>직원 관리</h2>
 
           <button
             onClick={() => setIsOpen(true)}
@@ -85,8 +117,9 @@ function EmployeesPage({ employees, setEmployees }) {
               color: "#fff",
               borderRadius: "10px",
               padding: "8px 12px",
-              fontWeight: "bold",
+              fontWeight: "800",
               cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
           >
             + 추가
@@ -191,7 +224,29 @@ function EmployeesPage({ employees, setEmployees }) {
               border: "1px solid #e9ecef",
             }}
           >
-            <h3 style={{ marginBottom: "20px" }}>직원 추가</h3>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <h3>직원 추가</h3>
+
+              <button
+                onClick={() => setIsOpen(false)}
+                aria-label="닫기"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
 
             <div style={{ marginBottom: "16px" }}>
               <div style={{ marginBottom: "8px", fontSize: "14px" }}>

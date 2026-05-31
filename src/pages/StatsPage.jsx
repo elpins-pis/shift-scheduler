@@ -118,6 +118,8 @@ function StatsPage({ schedules = {} }) {
         ? `${dayjs(`${selectedMonth}-01`).format("YYYY년 M월")} 통계`
         : `${periodStart} ~ ${periodEnd} 기간 통계`;
 
+  const hasNightWork = stats.totalNightWorkMinutes > 0;
+
   const summaryCards = [
     {
       label: "총 근무",
@@ -131,12 +133,16 @@ function StatsPage({ schedules = {} }) {
       color: "#2b8a3e",
       background: "#ebfbee",
     },
-    {
-      label: "총 야간",
-      value: formatMinutes(stats.totalNightWorkMinutes),
-      color: "#7048e8",
-      background: "#f3f0ff",
-    },
+    ...(hasNightWork
+      ? [
+          {
+            label: "야간근로",
+            value: formatMinutes(stats.totalNightWorkMinutes),
+            color: "#7048e8",
+            background: "#f3f0ff",
+          },
+        ]
+      : []),
     {
       label: "비근무",
       value: `${stats.totalNonWork}건`,
@@ -148,8 +154,6 @@ function StatsPage({ schedules = {} }) {
 
   return (
     <div style={{ padding: "6px" }}>
-      <h1 style={{ fontSize: "22px", marginBottom: "8px" }}>통계</h1>
-
       <section
         style={{
           background: "#fff",
@@ -335,7 +339,7 @@ function StatsPage({ schedules = {} }) {
                     style={{
                       flex: 1,
                       display: "grid",
-                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                      gridTemplateColumns: `repeat(${hasNightWork ? 4 : 3}, minmax(0, 1fr))`,
                       gap: "4px",
                     }}
                   >
@@ -349,11 +353,13 @@ function StatsPage({ schedules = {} }) {
                       value={formatCompactMinutes(employee.workMinutes)}
                       color="#2b8a3e"
                     />
-                    <CompactStat
-                      label="야간"
-                      value={formatCompactMinutes(employee.nightWorkMinutes)}
-                      color="#7048e8"
-                    />
+                    {hasNightWork && (
+                      <CompactStat
+                        label="야간근로"
+                        value={formatCompactMinutes(employee.nightWorkMinutes)}
+                        color="#7048e8"
+                      />
+                    )}
                     <CompactStat
                       label="비근무"
                       value={`${employee.nonWork}`}

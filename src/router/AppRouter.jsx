@@ -7,6 +7,7 @@ import CalendarPage from "../pages/CalendarPage";
 import StatsPage from "../pages/StatsPage";
 import EmployeesPage from "../pages/EmployeesPage";
 import SettingsPage from "../pages/SettingsPage";
+import HelpPage from "../pages/HelpPage";
 
 const initialShiftTypes = [
   {
@@ -87,15 +88,29 @@ const initialSchedules = {
     },
   ],
 };
+const initialPatternTemplates = [
+  {
+    id: 1,
+    name: "기본 주간",
+    days: ["OFF", "오전", "오전", "오전", "오전", "오전", "OFF"],
+  },
+  {
+    id: 2,
+    name: "야간 주간",
+    days: ["OFF", "야간", "야간", "야간", "야간", "OFF", "OFF"],
+  },
+];
 function AppRouter() {
   const [shiftTypes, setShiftTypes] = useState(initialShiftTypes);
   const [employees, setEmployees] = useState(initialEmployees);
   const [schedules, setSchedules] = useState(initialSchedules);
+  const [patternTemplates, setPatternTemplates] = useState(
+    initialPatternTemplates,
+  );
 
   return (
     <BrowserRouter>
-      <MainLayout shiftTypes={shiftTypes}>
-        {" "}
+      <MainLayout>
         <Routes>
           <Route
             path="/"
@@ -105,16 +120,19 @@ function AppRouter() {
                 employees={employees}
                 schedules={schedules}
                 setSchedules={setSchedules}
+                patternTemplates={patternTemplates}
               />
             }
           />
-          <Route path="/stats" element={<StatsPage schedules={schedules} />} />{" "}
+          <Route path="/stats" element={<StatsPage schedules={schedules} />} />
           <Route
             path="/employees"
             element={
               <EmployeesPage
                 employees={employees}
                 setEmployees={setEmployees}
+                schedules={schedules}
+                setSchedules={setSchedules}
               />
             }
           />
@@ -126,9 +144,12 @@ function AppRouter() {
                 setShiftTypes={setShiftTypes}
                 schedules={schedules}
                 setSchedules={setSchedules}
+                patternTemplates={patternTemplates}
+                setPatternTemplates={setPatternTemplates}
               />
             }
           />
+          <Route path="/help" element={<HelpPage />} />
         </Routes>
       </MainLayout>
     </BrowserRouter>

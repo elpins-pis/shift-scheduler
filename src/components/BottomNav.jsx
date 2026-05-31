@@ -1,13 +1,15 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 function BottomNav() {
-  const navStyle = {
+  const location = useLocation();
+  const navStyle = ({ isActive }) => ({
     flex: 1,
     textAlign: "center",
     textDecoration: "none",
-    color: "#555",
+    color: isActive ? "#3182f6" : "#868e96",
     fontSize: "14px",
-  };
+    fontWeight: isActive ? "800" : "700",
+  });
 
   return (
     <nav
@@ -35,7 +37,12 @@ function BottomNav() {
         직원
       </NavLink>
 
-      <NavLink to="/settings" style={navStyle}>
+      <NavLink
+        to="/settings"
+        style={({ isActive }) =>
+          navStyle({ isActive: isActive || location.pathname === "/help" })
+        }
+      >
         설정
       </NavLink>
     </nav>
