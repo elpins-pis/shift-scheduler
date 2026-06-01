@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { FiMenu, FiTrash2 } from "react-icons/fi";
+import { FiInfo, FiMenu, FiTrash2 } from "react-icons/fi";
 
 const categoryLabels = {
   WORK: "근무",
@@ -295,6 +295,55 @@ function SettingsPage({
 
   return (
     <div>
+      <Link
+        to="/help"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          marginBottom: "12px",
+          padding: "14px 16px",
+          background: "#f8f9fb",
+          border: "1px solid #e9ecef",
+          borderRadius: "16px",
+          color: "#191f28",
+          textDecoration: "none",
+        }}
+      >
+        <div
+          style={{
+            width: "34px",
+            height: "34px",
+            borderRadius: "999px",
+            background: "#edf4ff",
+            color: "#3182f6",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <FiInfo size={18} />
+        </div>
+
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: "15px", fontWeight: "800" }}>
+            사용 가이드
+          </div>
+          <div
+            style={{
+              color: "#868e96",
+              fontSize: "12px",
+              fontWeight: "700",
+              marginTop: "4px",
+              lineHeight: "1.35",
+            }}
+          >
+            근무 등록, 반복 등록, 복사, 통계 계산 기준을 확인할 수 있습니다.
+          </div>
+        </div>
+      </Link>
+
       <div
         style={{
           background: "#fff",
@@ -425,32 +474,6 @@ function SettingsPage({
           </div>
         ))}
       </div>
-
-      <Link
-        to="/help"
-        style={{
-          display: "block",
-          marginTop: "12px",
-          padding: "14px 16px",
-          background: "#f8f9fb",
-          border: "1px solid #e9ecef",
-          borderRadius: "16px",
-          color: "#191f28",
-          textDecoration: "none",
-        }}
-      >
-        <div style={{ fontSize: "15px", fontWeight: "800" }}>사용 가이드</div>
-        <div
-          style={{
-            color: "#868e96",
-            fontSize: "12px",
-            fontWeight: "700",
-            marginTop: "4px",
-          }}
-        >
-          근무 등록, 반복 등록, 복사, 통계 계산 기준을 확인할 수 있습니다.
-        </div>
-      </Link>
 
       <div
         style={{

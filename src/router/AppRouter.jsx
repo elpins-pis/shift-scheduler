@@ -124,7 +124,12 @@ function AppRouter() {
               />
             }
           />
-          <Route path="/stats" element={<StatsPage schedules={schedules} />} />
+          <Route
+            path="/stats"
+            element={
+              <StatsPage schedules={schedules} employees={employees} />
+            }
+          />
           <Route
             path="/employees"
             element={
