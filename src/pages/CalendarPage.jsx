@@ -618,7 +618,7 @@ function CalendarPage({
             >
               {shiftType.startTime && shiftType.endTime
                 ? formatShortTimeRange(shiftType.startTime, shiftType.endTime)
-                : "비근무"}
+                : "휴무/연차/기타"}
             </span>
           </div>
         ))}

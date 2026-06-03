@@ -6,6 +6,7 @@ const categoryLabels = {
   WORK: "근무",
   OFF: "휴무",
   VACATION: "연차/휴가",
+  OTHER: "기타 비근무",
 };
 
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
@@ -425,8 +426,7 @@ function SettingsPage({
                 <div style={{ fontWeight: "bold" }}>{shiftType.name}</div>
                 <div style={{ color: "#868e96", fontSize: "12px" }}>
                   {categoryLabels[shiftType.category || "WORK"]}
-                  {shiftType.category !== "OFF" &&
-                    shiftType.category !== "VACATION" &&
+                  {shiftType.category === "WORK" &&
                     shiftType.startTime &&
                     shiftType.endTime &&
                     ` · ${shiftType.startTime}~${shiftType.endTime}`}
@@ -737,6 +737,7 @@ function SettingsPage({
                 <option value="WORK">근무로 집계</option>
                 <option value="OFF">휴무로 집계</option>
                 <option value="VACATION">연차/휴가로 집계</option>
+                <option value="OTHER">기타 비근무로 집계</option>
               </select>
             </div>
 

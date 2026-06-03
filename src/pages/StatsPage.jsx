@@ -119,7 +119,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
   const selectedEmployeeLabel =
     selectedEmployee === "ALL" ? "전체 직원" : selectedEmployee;
   const isEmployeeSelected = selectedEmployee !== "ALL";
-  const employeeStats = (
+  const allEmployeeStats = (
     isEmployeeSelected
       ? [
           [
@@ -134,9 +134,10 @@ function StatsPage({ schedules = {}, employees = [] }) {
           ])
         : Object.entries(stats.byEmployee)
   ).sort(sortEmployeeStats);
-  const employeesWithWorkTime = employeeStats.filter(
+  const employeesWithWorkTime = allEmployeeStats.filter(
     ([, employee]) => employee.workMinutes > 0,
   );
+  const employeeStats = employeesWithWorkTime;
   const averageEmployeeCount = isEmployeeSelected
     ? 1
     : employeesWithWorkTime.length;
@@ -197,7 +198,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
             ]
           : []),
         {
-          label: "휴무/연차",
+          label: "휴무/연차/기타",
           value: `${stats.totalNonWork}건`,
           detail: formatNonWorkDetails(stats.totalNonWorkDetails),
           color: "#f76707",
@@ -229,7 +230,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
             ]
           : []),
         {
-          label: "휴무/연차",
+          label: "휴무/연차/기타",
           value: `${stats.totalNonWork}건`,
           detail: formatNonWorkDetails(stats.totalNonWorkDetails),
           color: "#f76707",
@@ -377,7 +378,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
           {isEmployeeSelected ? `${selectedEmployeeLabel} 상세` : "직원별 통계"}
         </h2>
 
-        {filteredSchedules.length === 0 ? (
+        {employeeStats.length === 0 ? (
           <div
             style={{
               color: "#868e96",
@@ -388,7 +389,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
               fontSize: "14px",
             }}
           >
-            선택한 기간에 등록된 스케줄이 없습니다.
+            선택한 기간에 근무한 직원이 없습니다.
           </div>
         ) : isEmployeeSelected ? (
           <EmployeeStatCard
@@ -642,7 +643,7 @@ function EmployeeStatCard({ name, employee, hasNightWork, variant = "list" }) {
             />
           )}
           <CompactStat
-            label="비근무"
+            label="휴무/연차"
             value={`${employee.nonWork}`}
             color="#f76707"
           />
@@ -659,7 +660,7 @@ function EmployeeStatCard({ name, employee, hasNightWork, variant = "list" }) {
             lineHeight: "1.35",
           }}
         >
-          비근무: {formatNonWorkDetails(employee.nonWorkDetails)}
+          휴무/연차/기타: {formatNonWorkDetails(employee.nonWorkDetails)}
         </div>
       )}
     </div>
