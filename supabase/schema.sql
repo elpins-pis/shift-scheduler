@@ -48,11 +48,13 @@ create table public.employees (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   name text not null,
   role text not null default 'USER' check (role in ('ADMIN', 'USER')),
+  is_active boolean not null default true,
+  inactive_at date,
+  deleted_at timestamptz,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (workspace_id, id),
-  unique (workspace_id, name)
+  unique (workspace_id, id)
 );
 
 create table public.shift_types (
@@ -123,6 +125,9 @@ create table public.pattern_template_days (
 );
 
 create index employees_workspace_id_idx on public.employees(workspace_id);
+create unique index employees_workspace_visible_name_key
+on public.employees(workspace_id, name)
+where deleted_at is null;
 create index shift_types_workspace_id_idx on public.shift_types(workspace_id);
 create index schedules_workspace_date_idx on public.schedules(workspace_id, work_date);
 create index schedules_employee_date_idx on public.schedules(employee_id, work_date);

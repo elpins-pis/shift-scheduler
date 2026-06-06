@@ -97,12 +97,51 @@ export async function createEmployee(workspaceId, employee, sortOrder) {
     name: employee.name,
     role: employee.role,
     sort_order: sortOrder,
+    is_active: true,
+    inactive_at: null,
+    deleted_at: null,
   });
 
   if (error) throw error;
 }
 
-export async function deleteEmployee(employeeId) {
+export async function deactivateEmployee(employeeId) {
+  const { error } = await supabase
+    .from("employees")
+    .update({
+      is_active: false,
+      inactive_at: new Date().toISOString().slice(0, 10),
+    })
+    .eq("id", employeeId);
+
+  if (error) throw error;
+}
+
+export async function restoreEmployee(employeeId) {
+  const { error } = await supabase
+    .from("employees")
+    .update({
+      is_active: true,
+      inactive_at: null,
+      deleted_at: null,
+    })
+    .eq("id", employeeId);
+
+  if (error) throw error;
+}
+
+export async function hideEmployee(employeeId) {
+  const { error } = await supabase
+    .from("employees")
+    .update({
+      deleted_at: new Date().toISOString(),
+    })
+    .eq("id", employeeId);
+
+  if (error) throw error;
+}
+
+export async function deleteEmployeeWithSchedules(employeeId) {
   const { error } = await supabase.from("employees").delete().eq("id", employeeId);
 
   if (error) throw error;
@@ -314,8 +353,9 @@ async function seedDefaultShiftTypesIfNeeded(workspaceId) {
 async function fetchEmployees(workspaceId) {
   const { data, error } = await supabase
     .from("employees")
-    .select("id, name, role, sort_order")
+    .select("id, name, role, sort_order, is_active, inactive_at, deleted_at")
     .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -325,6 +365,9 @@ async function fetchEmployees(workspaceId) {
     id: employee.id,
     name: employee.name,
     role: employee.role,
+    isActive: employee.is_active !== false,
+    inactiveAt: employee.inactive_at,
+    deletedAt: employee.deleted_at,
   }));
 }
 

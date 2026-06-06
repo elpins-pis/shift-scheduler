@@ -414,128 +414,132 @@ function SettingsPage({
 
   return (
     <div>
-      <Link
-        to="/help"
+      <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
+          display: "grid",
+          gridTemplateColumns: workspace?.invite_code
+            ? "minmax(0, 1fr) minmax(0, 1fr)"
+            : "1fr",
+          gap: "8px",
           marginBottom: "12px",
-          padding: "14px 16px",
-          background: "#f8f9fb",
-          border: "1px solid #e9ecef",
-          borderRadius: "16px",
-          color: "#191f28",
-          textDecoration: "none",
         }}
       >
-        <div
+        <Link
+          to="/help"
           style={{
-            width: "34px",
-            height: "34px",
-            borderRadius: "999px",
-            background: "#edf4ff",
-            color: "#3182f6",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <FiInfo size={18} />
-        </div>
-
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "15px", fontWeight: "800" }}>
-            사용 가이드
-          </div>
-          <div
-            style={{
-              color: "#868e96",
-              fontSize: "12px",
-              fontWeight: "700",
-              marginTop: "4px",
-              lineHeight: "1.35",
-            }}
-          >
-            근무 등록, 반복 등록, 복사, 통계 계산 기준을 확인할 수 있습니다.
-          </div>
-        </div>
-      </Link>
-
-      {workspace?.invite_code && (
-        <div
-          style={{
-            background: "#edf4ff",
-            border: "1px solid #dbeafe",
-            borderRadius: "16px",
-            marginBottom: "12px",
-            padding: "16px",
+            gap: "10px",
+            minWidth: 0,
+            padding: "12px",
+            background: "#f8f9fb",
+            border: "1px solid #e9ecef",
+            borderRadius: "14px",
+            color: "#191f28",
+            textDecoration: "none",
           }}
         >
           <div
             style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "999px",
+              background: "#edf4ff",
+              color: "#3182f6",
               display: "flex",
-              justifyContent: "space-between",
               alignItems: "center",
-              gap: "12px",
+              justifyContent: "center",
+              flexShrink: 0,
             }}
           >
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  color: "#3182f6",
-                  fontSize: "12px",
-                  fontWeight: "900",
-                  marginBottom: "5px",
-                }}
-              >
-                직원 초대 코드
-              </div>
-              <div
-                style={{
-                  color: "#191f28",
-                  fontSize: "22px",
-                  fontWeight: "900",
-                  letterSpacing: "1px",
-                }}
-              >
-                {workspace.invite_code}
-              </div>
-              <div
-                style={{
-                  color: "#5c677d",
-                  fontSize: "12px",
-                  fontWeight: "700",
-                  marginTop: "5px",
-                }}
-              >
-                {memberRole === "ADMIN"
-                  ? "직원이 가입 후 이 코드를 입력하면 참여할 수 있습니다."
-                  : "참여 중인 근무표의 코드입니다."}
-              </div>
-            </div>
+            <FiInfo size={17} />
+          </div>
 
-            <button
-              type="button"
-              onClick={handleCopyInviteCode}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: "14px", fontWeight: "900" }}>가이드</div>
+            <div
               style={{
-                border: "none",
-                background: "#3182f6",
-                color: "#fff",
-                borderRadius: "10px",
-                cursor: "pointer",
-                flexShrink: 0,
-                fontSize: "13px",
-                fontWeight: "900",
-                padding: "9px 12px",
+                color: "#868e96",
+                fontSize: "11px",
+                fontWeight: "700",
+                marginTop: "3px",
+                lineHeight: "1.3",
               }}
             >
-              복사
-            </button>
+              사용법 보기
+            </div>
           </div>
-        </div>
-      )}
+        </Link>
+
+        {workspace?.invite_code && (
+          <div
+            style={{
+              background: "#edf4ff",
+              border: "1px solid #dbeafe",
+              borderRadius: "14px",
+              minWidth: 0,
+              padding: "12px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "8px",
+              }}
+            >
+              <div
+                style={{
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    color: "#3182f6",
+                    fontSize: "11px",
+                    fontWeight: "900",
+                    marginBottom: "3px",
+                  }}
+                >
+                  초대 코드
+                </div>
+                <div
+                  style={{
+                    color: "#191f28",
+                    fontSize: "18px",
+                    fontWeight: "900",
+                    letterSpacing: "0.5px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {workspace.invite_code}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCopyInviteCode}
+                style={{
+                  border: "none",
+                  background: "#3182f6",
+                  color: "#fff",
+                  borderRadius: "9px",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  fontSize: "12px",
+                  fontWeight: "900",
+                  padding: "7px 9px",
+                }}
+              >
+                복사
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {memberRole === "ADMIN" && pendingMembers.length > 0 && (
         <div
@@ -659,10 +663,18 @@ function SettingsPage({
 
       <div
         style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+        }}
+      >
+      <div
+        style={{
           background: "#fff",
           border: "1px solid #e9ecef",
           borderRadius: "16px",
           padding: "16px",
+          order: 2,
         }}
       >
         <div
@@ -793,7 +805,7 @@ function SettingsPage({
           border: "1px solid #e9ecef",
           borderRadius: "16px",
           padding: "16px",
-          marginTop: "12px",
+          order: 1,
         }}
       >
         <div
@@ -946,6 +958,7 @@ function SettingsPage({
             </div>
           ))
         )}
+      </div>
       </div>
 
       {isOpen && (
