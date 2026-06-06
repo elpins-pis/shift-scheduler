@@ -1,18 +1,25 @@
 import { useState } from "react";
 import { FiMenu, FiTrash2 } from "react-icons/fi";
+import {
+  createEmployee,
+  deleteEmployee,
+  updateEmployeeOrder,
+} from "../services/workspaceService";
 
 function EmployeesPage({
+  workspace,
   employees,
   setEmployees,
   schedules = {},
   setSchedules,
+  onDataChanged,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("USER");
   const [draggedEmployeeId, setDraggedEmployeeId] = useState(null);
 
-  const handleAddEmployee = () => {
+  const handleAddEmployee = async () => {
     if (!newName.trim()) {
       alert("직원명을 입력해주세요.");
       return;
@@ -27,21 +34,37 @@ function EmployeesPage({
       return;
     }
 
-    setEmployees((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: newName.trim(),
-        role: newRole,
-      },
-    ]);
+    try {
+      if (workspace?.id) {
+        await createEmployee(
+          workspace.id,
+          {
+            name: newName.trim(),
+            role: newRole,
+          },
+          employees.length,
+        );
+        onDataChanged?.();
+      } else {
+        setEmployees((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            name: newName.trim(),
+            role: newRole,
+          },
+        ]);
+      }
 
-    setNewName("");
-    setNewRole("USER");
-    setIsOpen(false);
+      setNewName("");
+      setNewRole("USER");
+      setIsOpen(false);
+    } catch (error) {
+      alert(error.message || "직원을 저장하지 못했습니다.");
+    }
   };
 
-  const handleDeleteEmployee = (id) => {
+  const handleDeleteEmployee = async (id) => {
     const employee = employees.find((item) => item.id === id);
 
     if (!employee) return;
@@ -56,21 +79,31 @@ function EmployeesPage({
 
     if (!confirmed) return;
 
-    setEmployees((prev) => prev.filter((employee) => employee.id !== id));
+    try {
+      if (workspace?.id) {
+        await deleteEmployee(id);
+        onDataChanged?.();
+        return;
+      }
 
-    if (isUsed) {
-      setSchedules((prev) =>
-        Object.fromEntries(
-          Object.entries(prev)
-            .map(([date, dailySchedules]) => [
-              date,
-              dailySchedules.filter(
-                (schedule) => schedule.name !== employee.name,
-              ),
-            ])
-            .filter(([, dailySchedules]) => dailySchedules.length > 0),
-        ),
-      );
+      setEmployees((prev) => prev.filter((employee) => employee.id !== id));
+
+      if (isUsed) {
+        setSchedules((prev) =>
+          Object.fromEntries(
+            Object.entries(prev)
+              .map(([date, dailySchedules]) => [
+                date,
+                dailySchedules.filter(
+                  (schedule) => schedule.name !== employee.name,
+                ),
+              ])
+              .filter(([, dailySchedules]) => dailySchedules.length > 0),
+          ),
+        );
+      }
+    } catch (error) {
+      alert(error.message || "직원을 삭제하지 못했습니다.");
     }
   };
 
@@ -85,7 +118,18 @@ function EmployeesPage({
 
       if (fromIndex === -1 || toIndex === -1) return prev;
 
-      return moveItem(prev, fromIndex, toIndex);
+      const nextEmployees = moveItem(prev, fromIndex, toIndex);
+
+      if (workspace?.id) {
+        updateEmployeeOrder(nextEmployees)
+          .then(() => onDataChanged?.())
+          .catch((error) => {
+            alert(error.message || "직원 순서를 저장하지 못했습니다.");
+            onDataChanged?.();
+          });
+      }
+
+      return nextEmployees;
     });
   };
 

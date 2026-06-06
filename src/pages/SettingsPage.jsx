@@ -1,6 +1,13 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { FiInfo, FiMenu, FiTrash2 } from "react-icons/fi";
+import { FiHelpCircle, FiInfo, FiMenu, FiTrash2 } from "react-icons/fi";
+import {
+  deletePatternTemplate,
+  deleteShiftType as removeShiftType,
+  savePatternTemplate,
+  saveShiftType,
+  updateShiftTypeOrder,
+} from "../services/workspaceService";
 
 const categoryLabels = {
   WORK: "근무",
@@ -38,6 +45,9 @@ const emojiPresets = [
   "✅",
 ];
 
+const shouldOpenPatternForm = () =>
+  new URLSearchParams(window.location.search).get("openPattern") === "true";
+
 function SettingsPage({
   shiftTypes,
   setShiftTypes,
@@ -45,9 +55,15 @@ function SettingsPage({
   setSchedules,
   patternTemplates = [],
   setPatternTemplates,
+  workspace,
+  memberRole,
+  pendingMembers = [],
+  onApproveMember,
+  onRejectMember,
+  onDataChanged,
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isPatternOpen, setIsPatternOpen] = useState(false);
+  const [isPatternOpen, setIsPatternOpen] = useState(shouldOpenPatternForm);
   const [editingName, setEditingName] = useState(null);
   const [editingPatternId, setEditingPatternId] = useState(null);
   const [newName, setNewName] = useState("");
@@ -58,6 +74,9 @@ function SettingsPage({
   const [patternName, setPatternName] = useState("");
   const [patternDays, setPatternDays] = useState(Array(7).fill(""));
   const [draggedShiftName, setDraggedShiftName] = useState(null);
+  const [processingMemberId, setProcessingMemberId] = useState(null);
+  const [isPatternHelpOpen, setIsPatternHelpOpen] =
+    useState(shouldOpenPatternForm);
 
   const resetForm = () => {
     setEditingName(null);
@@ -111,7 +130,7 @@ function SettingsPage({
     setIsPatternOpen(false);
   };
 
-  const handleSaveShiftType = () => {
+  const handleSaveShiftType = async () => {
     const trimmedName = newName.trim();
 
     if (!newName.trim()) {
@@ -135,6 +154,7 @@ function SettingsPage({
     }
 
     const nextShiftType = {
+      id: shiftTypes.find((shiftType) => shiftType.name === editingName)?.id,
       name: trimmedName,
       icon: newIcon,
       color:
@@ -145,56 +165,72 @@ function SettingsPage({
       category: newCategory,
     };
 
-    if (editingName) {
-      setShiftTypes((prev) =>
-        prev.map((shiftType) =>
-          shiftType.name === editingName ? nextShiftType : shiftType,
-        ),
-      );
+    try {
+      if (workspace?.id) {
+        const sortOrder = editingName
+          ? shiftTypes.findIndex((shiftType) => shiftType.name === editingName)
+          : shiftTypes.length;
 
-      setSchedules((prev) =>
-        Object.fromEntries(
-          Object.entries(prev).map(([date, dailySchedules]) => [
-            date,
-            dailySchedules.map((schedule) =>
-              schedule.type === editingName
-                ? {
-                    ...schedule,
-                    type: trimmedName,
-                    icon: newIcon,
-                    color: nextShiftType.color,
-                    category: newCategory,
-                    startTime: nextShiftType.startTime,
-                    endTime: nextShiftType.endTime,
-                  }
-                : schedule,
-            ),
-          ]),
-        ),
-      );
+        await saveShiftType(workspace.id, nextShiftType, sortOrder);
+        closeForm();
+        onDataChanged?.();
+        return;
+      }
 
-      setPatternTemplates((prev) =>
-        prev.map((pattern) => ({
-          ...pattern,
-          days: pattern.days.map((day) =>
-            day === editingName ? trimmedName : day,
+      if (editingName) {
+        setShiftTypes((prev) =>
+          prev.map((shiftType) =>
+            shiftType.name === editingName ? nextShiftType : shiftType,
           ),
-        })),
-      );
-    } else {
-      setShiftTypes((prev) => [
-        ...prev,
-        {
-          ...nextShiftType,
-          color: "#3182f6",
-        },
-      ]);
-    }
+        );
 
-    closeForm();
+        setSchedules((prev) =>
+          Object.fromEntries(
+            Object.entries(prev).map(([date, dailySchedules]) => [
+              date,
+              dailySchedules.map((schedule) =>
+                schedule.type === editingName
+                  ? {
+                      ...schedule,
+                      type: trimmedName,
+                      icon: newIcon,
+                      color: nextShiftType.color,
+                      category: newCategory,
+                      startTime: nextShiftType.startTime,
+                      endTime: nextShiftType.endTime,
+                    }
+                  : schedule,
+              ),
+            ]),
+          ),
+        );
+
+        setPatternTemplates((prev) =>
+          prev.map((pattern) => ({
+            ...pattern,
+            days: pattern.days.map((day) =>
+              day === editingName ? trimmedName : day,
+            ),
+          })),
+        );
+      } else {
+        setShiftTypes((prev) => [
+          ...prev,
+          {
+            ...nextShiftType,
+            color: "#3182f6",
+          },
+        ]);
+      }
+
+      closeForm();
+    } catch (error) {
+      alert(error.message || "근무유형을 저장하지 못했습니다.");
+    }
   };
 
-  const handleDeleteShiftType = (shiftTypeName) => {
+  const handleDeleteShiftType = async (shiftTypeName) => {
+    const shiftType = shiftTypes.find((item) => item.name === shiftTypeName);
     const isUsed = Object.values(schedules).some((dailySchedules) =>
       dailySchedules.some((schedule) => schedule.type === shiftTypeName),
     );
@@ -216,12 +252,22 @@ function SettingsPage({
 
     if (!confirmed) return;
 
-    setShiftTypes((prev) =>
-      prev.filter((shiftType) => shiftType.name !== shiftTypeName),
-    );
+    try {
+      if (workspace?.id && shiftType?.id) {
+        await removeShiftType(shiftType.id);
+        onDataChanged?.();
+        return;
+      }
+
+      setShiftTypes((prev) =>
+        prev.filter((shiftType) => shiftType.name !== shiftTypeName),
+      );
+    } catch (error) {
+      alert(error.message || "근무유형을 삭제하지 못했습니다.");
+    }
   };
 
-  const handleSavePattern = () => {
+  const handleSavePattern = async () => {
     const trimmedName = patternName.trim();
 
     if (!trimmedName) {
@@ -250,27 +296,48 @@ function SettingsPage({
       days: patternDays,
     };
 
-    if (editingPatternId) {
-      setPatternTemplates((prev) =>
-        prev.map((pattern) =>
-          pattern.id === editingPatternId ? nextPattern : pattern,
-        ),
-      );
-    } else {
-      setPatternTemplates((prev) => [...prev, nextPattern]);
-    }
+    try {
+      if (workspace?.id) {
+        await savePatternTemplate(workspace.id, nextPattern, shiftTypes);
+        closePatternForm();
+        onDataChanged?.();
+        return;
+      }
 
-    closePatternForm();
+      if (editingPatternId) {
+        setPatternTemplates((prev) =>
+          prev.map((pattern) =>
+            pattern.id === editingPatternId ? nextPattern : pattern,
+          ),
+        );
+      } else {
+        setPatternTemplates((prev) => [...prev, nextPattern]);
+      }
+
+      closePatternForm();
+    } catch (error) {
+      alert(error.message || "패턴 템플릿을 저장하지 못했습니다.");
+    }
   };
 
-  const handleDeletePattern = (patternId) => {
+  const handleDeletePattern = async (patternId) => {
     const confirmed = window.confirm("이 패턴 템플릿을 삭제할까요?");
 
     if (!confirmed) return;
 
-    setPatternTemplates((prev) =>
-      prev.filter((pattern) => pattern.id !== patternId),
-    );
+    try {
+      if (workspace?.id) {
+        await deletePatternTemplate(patternId);
+        onDataChanged?.();
+        return;
+      }
+
+      setPatternTemplates((prev) =>
+        prev.filter((pattern) => pattern.id !== patternId),
+      );
+    } catch (error) {
+      alert(error.message || "패턴 템플릿을 삭제하지 못했습니다.");
+    }
   };
 
   const handleDropShiftType = (targetName) => {
@@ -284,12 +351,63 @@ function SettingsPage({
 
       if (fromIndex === -1 || toIndex === -1) return prev;
 
-      return moveItem(prev, fromIndex, toIndex);
+      const nextShiftTypes = moveItem(prev, fromIndex, toIndex);
+
+      if (workspace?.id) {
+        updateShiftTypeOrder(nextShiftTypes)
+          .then(() => onDataChanged?.())
+          .catch((error) => {
+            alert(error.message || "근무유형 순서를 저장하지 못했습니다.");
+            onDataChanged?.();
+          });
+      }
+
+      return nextShiftTypes;
     });
   };
 
   const getShiftTypeMeta = (name) =>
     shiftTypes.find((shiftType) => shiftType.name === name);
+  const handleCopyInviteCode = async () => {
+    if (!workspace?.invite_code) return;
+
+    try {
+      await navigator.clipboard.writeText(workspace.invite_code);
+      alert("초대 코드를 복사했습니다.");
+    } catch {
+      alert(`초대 코드: ${workspace.invite_code}`);
+    }
+  };
+  const handleApproveMember = async (userId) => {
+    if (!onApproveMember) return;
+
+    setProcessingMemberId(userId);
+
+    try {
+      await onApproveMember(userId);
+    } catch (error) {
+      alert(error.message || "참여 요청을 승인하지 못했습니다.");
+    } finally {
+      setProcessingMemberId(null);
+    }
+  };
+  const handleRejectMember = async (userId) => {
+    if (!onRejectMember) return;
+
+    const confirmed = window.confirm("이 참여 요청을 거절할까요?");
+
+    if (!confirmed) return;
+
+    setProcessingMemberId(userId);
+
+    try {
+      await onRejectMember(userId);
+    } catch (error) {
+      alert(error.message || "참여 요청을 거절하지 못했습니다.");
+    } finally {
+      setProcessingMemberId(null);
+    }
+  };
 
   const currentEditMeta = getShiftTypeMeta(editingName);
   const modalTitle = editingName ? "근무유형 수정" : "근무유형 추가";
@@ -344,6 +462,200 @@ function SettingsPage({
           </div>
         </div>
       </Link>
+
+      {workspace?.invite_code && (
+        <div
+          style={{
+            background: "#edf4ff",
+            border: "1px solid #dbeafe",
+            borderRadius: "16px",
+            marginBottom: "12px",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  color: "#3182f6",
+                  fontSize: "12px",
+                  fontWeight: "900",
+                  marginBottom: "5px",
+                }}
+              >
+                직원 초대 코드
+              </div>
+              <div
+                style={{
+                  color: "#191f28",
+                  fontSize: "22px",
+                  fontWeight: "900",
+                  letterSpacing: "1px",
+                }}
+              >
+                {workspace.invite_code}
+              </div>
+              <div
+                style={{
+                  color: "#5c677d",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  marginTop: "5px",
+                }}
+              >
+                {memberRole === "ADMIN"
+                  ? "직원이 가입 후 이 코드를 입력하면 참여할 수 있습니다."
+                  : "참여 중인 근무표의 코드입니다."}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyInviteCode}
+              style={{
+                border: "none",
+                background: "#3182f6",
+                color: "#fff",
+                borderRadius: "10px",
+                cursor: "pointer",
+                flexShrink: 0,
+                fontSize: "13px",
+                fontWeight: "900",
+                padding: "9px 12px",
+              }}
+            >
+              복사
+            </button>
+          </div>
+        </div>
+      )}
+
+      {memberRole === "ADMIN" && pendingMembers.length > 0 && (
+        <div
+          style={{
+            background: "#fff",
+            border: "1px solid #e9ecef",
+            borderRadius: "16px",
+            marginBottom: "12px",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "12px",
+            }}
+          >
+            <h2 style={{ fontSize: "18px" }}>참여 요청</h2>
+            <div
+              style={{
+                background: "#fff4e6",
+                borderRadius: "999px",
+                color: "#f08c00",
+                fontSize: "12px",
+                fontWeight: "900",
+                padding: "5px 9px",
+              }}
+            >
+              {pendingMembers.length}명 대기
+            </div>
+          </div>
+
+          {pendingMembers.map((member) => (
+            <div
+              key={member.userId}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "10px",
+                background: "#f8f9fb",
+                borderRadius: "12px",
+                padding: "12px",
+                marginBottom: "8px",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    color: "#191f28",
+                    fontSize: "14px",
+                    fontWeight: "900",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {member.email}
+                </div>
+                <div
+                  style={{
+                    color: "#868e96",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    marginTop: "4px",
+                  }}
+                >
+                  승인 전까지 스케줄을 볼 수 없습니다.
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "6px",
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={processingMemberId === member.userId}
+                  onClick={() => handleRejectMember(member.userId)}
+                  style={{
+                    border: "none",
+                    background: "#fff5f5",
+                    color: "#fa5252",
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: "900",
+                    padding: "8px 10px",
+                  }}
+                >
+                  거절
+                </button>
+                <button
+                  type="button"
+                  disabled={processingMemberId === member.userId}
+                  onClick={() => handleApproveMember(member.userId)}
+                  style={{
+                    border: "none",
+                    background: "#3182f6",
+                    color: "#fff",
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: "900",
+                    padding: "8px 10px",
+                  }}
+                >
+                  승인
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div
         style={{
@@ -492,7 +804,36 @@ function SettingsPage({
             marginBottom: "16px",
           }}
         >
-          <h2 style={{ fontSize: "18px" }}>패턴 템플릿 관리</h2>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              minWidth: 0,
+            }}
+          >
+            <h2 style={{ fontSize: "18px" }}>패턴 템플릿 관리</h2>
+            <button
+              type="button"
+              onClick={() => setIsPatternHelpOpen((prev) => !prev)}
+              aria-label="패턴 템플릿 설명"
+              style={{
+                border: "none",
+                background: "#f1f3f5",
+                color: "#868e96",
+                borderRadius: "999px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                width: "28px",
+                height: "28px",
+              }}
+            >
+              <FiHelpCircle size={16} />
+            </button>
+          </div>
 
           <button
             onClick={openAddPatternForm}
@@ -510,6 +851,25 @@ function SettingsPage({
             + 추가
           </button>
         </div>
+
+        {isPatternHelpOpen && (
+          <div
+            style={{
+              background: "#f8f9fb",
+              border: "1px solid #e9ecef",
+              borderRadius: "12px",
+              color: "#495057",
+              fontSize: "13px",
+              fontWeight: "700",
+              lineHeight: "1.5",
+              marginBottom: "12px",
+              padding: "12px",
+            }}
+          >
+            자주 쓰는 주간 근무표를 저장해두는 기능입니다. 반복 등록할 때
+            선택하면 요일별 근무가 자동으로 채워집니다.
+          </div>
+        )}
 
         {patternTemplates.length === 0 ? (
           <div

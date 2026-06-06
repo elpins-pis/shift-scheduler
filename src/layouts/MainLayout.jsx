@@ -1,10 +1,12 @@
 import dayjs from "dayjs";
 import BottomNav from "../components/BottomNav";
+import { useAuth } from "../contexts/useAuth";
 
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 
 function MainLayout({ children }) {
   const today = dayjs();
+  const { user, signOut } = useAuth();
 
   return (
     <div
@@ -26,6 +28,8 @@ function MainLayout({ children }) {
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
           }}
         >
           <div
@@ -38,6 +42,25 @@ function MainLayout({ children }) {
           >
             ShiftMate
           </div>
+          {user && (
+            <button
+              type="button"
+              onClick={signOut}
+              style={{
+                border: "none",
+                background: "#f1f3f5",
+                borderRadius: "999px",
+                color: "#495057",
+                cursor: "pointer",
+                flexShrink: 0,
+                fontSize: "12px",
+                fontWeight: "900",
+                padding: "8px 11px",
+              }}
+            >
+              로그아웃
+            </button>
+          )}
         </div>
 
         <div

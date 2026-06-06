@@ -1,16 +1,25 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { FiTrash2, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import {
+  deleteSchedule,
+  saveSchedule,
+  saveSchedules,
+} from "../services/workspaceService";
 
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 
 function CalendarPage({
+  workspace,
   shiftTypes,
   employees,
   schedules,
   setSchedules,
   patternTemplates = [],
+  onDataChanged,
 }) {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [selectedDate, setSelectedDate] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -135,8 +144,11 @@ function CalendarPage({
 
   const createSchedule = (employeeName, type) => {
     const shiftType = getShiftType(type);
+    const employee = employees.find((item) => item.name === employeeName);
 
     return {
+      employeeId: employee?.id,
+      shiftTypeId: shiftType?.id,
       name: employeeName,
       type,
       icon: shiftType?.icon || getShiftIcon(type),
@@ -196,6 +208,11 @@ function CalendarPage({
     setIsCopyFormOpen(true);
   };
 
+  const handleGoToPatternTemplate = () => {
+    setIsRepeatFormOpen(false);
+    navigate("/settings?openPattern=true");
+  };
+
   const applyCopyMonthRange = (rangeType, month) => {
     if (!month) return;
 
@@ -246,7 +263,7 @@ function CalendarPage({
     }
   };
 
-  const handleSaveSchedule = () => {
+  const handleSaveSchedule = async () => {
     if (!formDate) {
       alert("날짜가 선택되지 않았습니다.");
       return;
@@ -259,29 +276,49 @@ function CalendarPage({
 
     const newSchedule = createSchedule(selectedEmployee, selectedShiftType);
 
-    setSchedules((prev) => {
-      const currentList = [...(prev[formDate] || [])];
+    try {
+      if (workspace?.id) {
+        const existingSchedule =
+          editIndex !== null ? schedules[formDate]?.[editIndex] : null;
 
-      if (editIndex !== null) {
-        currentList[editIndex] = newSchedule;
+        await saveSchedule(workspace.id, formDate, newSchedule);
+
+        if (
+          existingSchedule?.id &&
+          existingSchedule.employeeId !== newSchedule.employeeId
+        ) {
+          await deleteSchedule(existingSchedule.id);
+        }
+
+        onDataChanged?.();
       } else {
-        currentList.push(newSchedule);
+        setSchedules((prev) => {
+          const currentList = [...(prev[formDate] || [])];
+
+          if (editIndex !== null) {
+            currentList[editIndex] = newSchedule;
+          } else {
+            currentList.push(newSchedule);
+          }
+
+          return {
+            ...prev,
+            [formDate]: currentList,
+          };
+        });
       }
 
-      return {
-        ...prev,
-        [formDate]: currentList,
-      };
-    });
-
-    setSelectedEmployee("");
-    setStartTime("");
-    setEndTime("");
-    setEditIndex(null);
-    setIsFormOpen(false);
+      setSelectedEmployee("");
+      setStartTime("");
+      setEndTime("");
+      setEditIndex(null);
+      setIsFormOpen(false);
+    } catch (error) {
+      alert(error.message || "스케줄을 저장하지 못했습니다.");
+    }
   };
 
-  const handleSaveRepeatSchedules = () => {
+  const handleSaveRepeatSchedules = async () => {
     if (!repeatEmployee) {
       alert("직원을 선택해주세요.");
       return;
@@ -320,8 +357,10 @@ function CalendarPage({
         }
 
         const weekIndex = getWeekIndexInRange(date, repeatStartDate);
-        const patternId = Number(repeatWeekPatternIds[weekIndex]);
-        const pattern = patternTemplates.find((item) => item.id === patternId);
+        const patternId = repeatWeekPatternIds[weekIndex];
+        const pattern = patternTemplates.find(
+          (item) => String(item.id) === String(patternId),
+        );
 
         return {
           date,
@@ -344,35 +383,61 @@ function CalendarPage({
       if (!confirmed) return;
     }
 
-    setSchedules((prev) => {
-      const nextSchedules = { ...prev };
+    try {
+      if (workspace?.id) {
+        await saveSchedules(
+          workspace.id,
+          repeatItems
+            .filter(({ date }) => {
+              const currentList = schedules[date] || [];
+              const hasEmployeeSchedule = currentList.some(
+                (schedule) => schedule.name === repeatEmployee,
+              );
 
-      repeatItems.forEach(({ date, shiftTypeName }) => {
-        const currentList = nextSchedules[date] || [];
-        const hasEmployeeSchedule = currentList.some(
-          (schedule) => schedule.name === repeatEmployee,
+              return !(repeatApplyMode === "empty" && hasEmployeeSchedule);
+            })
+            .map(({ date, shiftTypeName }) => ({
+              date,
+              schedule: createSchedule(repeatEmployee, shiftTypeName),
+            })),
         );
+        onDataChanged?.();
+      } else {
+        setSchedules((prev) => {
+          const nextSchedules = { ...prev };
 
-        if (repeatApplyMode === "empty" && hasEmployeeSchedule) return;
+          repeatItems.forEach(({ date, shiftTypeName }) => {
+            const currentList = nextSchedules[date] || [];
+            const hasEmployeeSchedule = currentList.some(
+              (schedule) => schedule.name === repeatEmployee,
+            );
 
-        const filteredList =
-          repeatApplyMode === "overwrite"
-            ? currentList.filter((schedule) => schedule.name !== repeatEmployee)
-            : currentList;
+            if (repeatApplyMode === "empty" && hasEmployeeSchedule) return;
 
-        nextSchedules[date] = [
-          ...filteredList,
-          createSchedule(repeatEmployee, shiftTypeName),
-        ];
-      });
+            const filteredList =
+              repeatApplyMode === "overwrite"
+                ? currentList.filter(
+                    (schedule) => schedule.name !== repeatEmployee,
+                  )
+                : currentList;
 
-      return nextSchedules;
-    });
+            nextSchedules[date] = [
+              ...filteredList,
+              createSchedule(repeatEmployee, shiftTypeName),
+            ];
+          });
 
-    setIsRepeatFormOpen(false);
+          return nextSchedules;
+        });
+      }
+
+      setIsRepeatFormOpen(false);
+    } catch (error) {
+      alert(error.message || "반복 스케줄을 저장하지 못했습니다.");
+    }
   };
 
-  const handleSaveCopiedSchedules = () => {
+  const handleSaveCopiedSchedules = async () => {
     if (
       !copySourceStartDate ||
       !copySourceEndDate ||
@@ -432,42 +497,78 @@ function CalendarPage({
       if (!confirmed) return;
     }
 
-    setSchedules((prev) => {
-      const nextSchedules = { ...prev };
+    try {
+      if (workspace?.id) {
+        await saveSchedules(
+          workspace.id,
+          copiedItems
+            .filter(({ targetDate, schedule }) => {
+              const currentList = schedules[targetDate] || [];
+              const hasEmployeeSchedule = currentList.some(
+                (item) => item.name === schedule.name,
+              );
 
-      copiedItems.forEach(({ targetDate, schedule }) => {
-        const currentList = nextSchedules[targetDate] || [];
-        const hasEmployeeSchedule = currentList.some(
-          (item) => item.name === schedule.name,
+              return !(copyApplyMode === "empty" && hasEmployeeSchedule);
+            })
+            .map(({ targetDate, schedule }) => ({
+              date: targetDate,
+              schedule,
+            })),
         );
+        onDataChanged?.();
+      } else {
+        setSchedules((prev) => {
+          const nextSchedules = { ...prev };
 
-        if (copyApplyMode === "empty" && hasEmployeeSchedule) return;
+          copiedItems.forEach(({ targetDate, schedule }) => {
+            const currentList = nextSchedules[targetDate] || [];
+            const hasEmployeeSchedule = currentList.some(
+              (item) => item.name === schedule.name,
+            );
 
-        const filteredList =
-          copyApplyMode === "overwrite"
-            ? currentList.filter((item) => item.name !== schedule.name)
-            : currentList;
+            if (copyApplyMode === "empty" && hasEmployeeSchedule) return;
 
-        nextSchedules[targetDate] = [...filteredList, schedule];
-      });
+            const filteredList =
+              copyApplyMode === "overwrite"
+                ? currentList.filter((item) => item.name !== schedule.name)
+                : currentList;
 
-      return nextSchedules;
-    });
+            nextSchedules[targetDate] = [...filteredList, schedule];
+          });
 
-    setIsCopyFormOpen(false);
+          return nextSchedules;
+        });
+      }
+
+      setIsCopyFormOpen(false);
+    } catch (error) {
+      alert(error.message || "복사한 스케줄을 저장하지 못했습니다.");
+    }
   };
 
-  const handleDeleteSchedule = (date, index) => {
-    setSchedules((prev) => {
-      const updatedList = [...(prev[date] || [])];
+  const handleDeleteSchedule = async (date, index) => {
+    const targetSchedule = schedules[date]?.[index];
 
-      updatedList.splice(index, 1);
+    try {
+      if (workspace?.id && targetSchedule?.id) {
+        await deleteSchedule(targetSchedule.id);
+        onDataChanged?.();
+        return;
+      }
 
-      return {
-        ...prev,
-        [date]: updatedList,
-      };
-    });
+      setSchedules((prev) => {
+        const updatedList = [...(prev[date] || [])];
+
+        updatedList.splice(index, 1);
+
+        return {
+          ...prev,
+          [date]: updatedList,
+        };
+      });
+    } catch (error) {
+      alert(error.message || "스케줄을 삭제하지 못했습니다.");
+    }
   };
 
   const handleOpenEditForm = (date, index, schedule) => {
@@ -1233,75 +1334,116 @@ function CalendarPage({
                   marginBottom: "18px",
                 }}
               >
-                {repeatWeeks.map((week, index) => (
-                  <div
-                    key={`${week.startDate}-${week.endDate}`}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "112px 1fr",
-                      alignItems: "center",
-                      gap: "8px",
-                      background: "#f8f9fb",
-                      borderRadius: "10px",
-                      padding: "10px",
-                    }}
-                  >
-                    <div>
+                {patternTemplates.length > 0 &&
+                  repeatWeeks.map((week, index) => (
+                    <div
+                      key={`${week.startDate}-${week.endDate}`}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "92px 1fr",
+                        alignItems: "center",
+                        gap: "8px",
+                        background: "#f8f9fb",
+                        borderRadius: "10px",
+                        padding: "8px",
+                      }}
+                    >
                       <div
                         style={{
-                          fontSize: "13px",
-                          fontWeight: "800",
                           color: "#495057",
+                          fontSize: "12px",
+                          fontWeight: "900",
+                          lineHeight: "1.25",
                         }}
                       >
                         {index + 1}주차
+                        <span
+                          style={{
+                            color: "#868e96",
+                            display: "block",
+                            fontSize: "10px",
+                            fontWeight: "700",
+                            marginTop: "1px",
+                          }}
+                        >
+                          {formatMonthDay(week.startDate)}-
+                          {formatMonthDay(week.endDate)}
+                        </span>
                       </div>
-                      <div
+
+                      <select
+                        value={repeatWeekPatternIds[index] || ""}
+                        onChange={(e) => {
+                          const nextPatternIds = [...repeatWeekPatternIds];
+                          nextPatternIds[index] = e.target.value;
+                          setRepeatWeekPatternIds(nextPatternIds);
+                        }}
                         style={{
-                          color: "#868e96",
-                          fontSize: "10px",
-                          fontWeight: "700",
-                          marginTop: "2px",
+                          width: "100%",
+                          padding: "8px 9px",
+                          borderRadius: "9px",
+                          border: "1px solid #ddd",
+                          fontSize: "13px",
                         }}
                       >
-                        {formatMonthDay(week.startDate)}-
-                        {formatMonthDay(week.endDate)}
-                      </div>
+                        <option value="">등록 안 함</option>
+                        {patternTemplates.map((pattern) => (
+                          <option key={pattern.id} value={pattern.id}>
+                            {pattern.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-
-                    <select
-                      value={repeatWeekPatternIds[index] || ""}
-                      onChange={(e) => {
-                        const nextPatternIds = [...repeatWeekPatternIds];
-                        nextPatternIds[index] = e.target.value;
-                        setRepeatWeekPatternIds(nextPatternIds);
-                      }}
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        borderRadius: "10px",
-                        border: "1px solid #ddd",
-                      }}
-                    >
-                      <option value="">등록 안 함</option>
-                      {patternTemplates.map((pattern) => (
-                        <option key={pattern.id} value={pattern.id}>
-                          {pattern.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
+                  ))}
 
                 {patternTemplates.length === 0 && (
                   <div
                     style={{
-                      color: "#868e96",
-                      fontSize: "12px",
-                      lineHeight: "1.4",
+                      background: "#f8f9fb",
+                      border: "1px solid #e9ecef",
+                      borderRadius: "10px",
+                      padding: "12px",
                     }}
                   >
-                    설정에서 패턴 템플릿을 먼저 추가해주세요.
+                    <div
+                      style={{
+                        color: "#191f28",
+                        fontSize: "13px",
+                        fontWeight: "900",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      등록된 패턴 템플릿이 없습니다.
+                    </div>
+                    <div
+                      style={{
+                        color: "#868e96",
+                        fontSize: "12px",
+                        fontWeight: "700",
+                        lineHeight: "1.35",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      자주 쓰는 주간 근무표를 저장해두면 반복 등록에서 바로
+                      선택할 수 있습니다.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGoToPatternTemplate}
+                      style={{
+                        width: "100%",
+                        border: "none",
+                        background: "#3182f6",
+                        color: "#fff",
+                        borderRadius: "10px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: "900",
+                        padding: "9px",
+                      }}
+                    >
+                      패턴 템플릿 만들기
+                    </button>
                   </div>
                 )}
               </div>

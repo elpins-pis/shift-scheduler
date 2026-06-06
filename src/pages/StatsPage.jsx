@@ -134,16 +134,20 @@ function StatsPage({ schedules = {}, employees = [] }) {
           ])
         : Object.entries(stats.byEmployee)
   ).sort(sortEmployeeStats);
-  const employeesWithWorkTime = allEmployeeStats.filter(
+  const employeesWithActivity = allEmployeeStats.filter(
+    ([, employee]) => employee.work > 0 || employee.nonWork > 0,
+  );
+  const employeeStats = employeesWithActivity;
+  const visibleStats = aggregateEmployeeStats(employeeStats);
+  const employeesWithWorkTime = employeeStats.filter(
     ([, employee]) => employee.workMinutes > 0,
   );
-  const employeeStats = employeesWithWorkTime;
   const averageEmployeeCount = isEmployeeSelected
     ? 1
     : employeesWithWorkTime.length;
   const averageWorkMinutes =
     averageEmployeeCount > 0
-      ? Math.round(stats.totalWorkMinutes / averageEmployeeCount)
+      ? Math.round(visibleStats.totalWorkMinutes / averageEmployeeCount)
       : 0;
   const employeeSelect = (
     <select
@@ -160,28 +164,28 @@ function StatsPage({ schedules = {}, employees = [] }) {
     </select>
   );
 
-  const hasNightWork = stats.totalNightWorkMinutes > 0;
+  const hasNightWork = visibleStats.totalNightWorkMinutes > 0;
 
   const summaryCards = isEmployeeSelected
     ? [
         {
           label: "근무",
-          value: `${stats.totalWork}건`,
+          value: `${visibleStats.totalWork}건`,
           color: "#3182f6",
           background: "#edf4ff",
         },
         {
           label: "근무시간",
-          value: formatMinutes(stats.totalWorkMinutes),
+          value: formatMinutes(visibleStats.totalWorkMinutes),
           color: "#2b8a3e",
           background: "#ebfbee",
         },
-        ...(stats.totalWeekendWorkMinutes > 0
+        ...(visibleStats.totalWeekendWorkMinutes > 0
           ? [
               {
                 label: "주말근무",
-                value: formatMinutes(stats.totalWeekendWorkMinutes),
-                detail: `${stats.totalWeekendWork}건`,
+                value: formatMinutes(visibleStats.totalWeekendWorkMinutes),
+                detail: `${visibleStats.totalWeekendWork}건`,
                 color: "#364fc7",
                 background: "#eef2ff",
               },
@@ -191,7 +195,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
           ? [
               {
                 label: "야간근로",
-                value: formatMinutes(stats.totalNightWorkMinutes),
+                value: formatMinutes(visibleStats.totalNightWorkMinutes),
                 color: "#7048e8",
                 background: "#f3f0ff",
               },
@@ -199,8 +203,8 @@ function StatsPage({ schedules = {}, employees = [] }) {
           : []),
         {
           label: "휴무/연차/기타",
-          value: `${stats.totalNonWork}건`,
-          detail: formatNonWorkDetails(stats.totalNonWorkDetails),
+          value: `${visibleStats.totalNonWork}건`,
+          detail: formatNonWorkDetails(visibleStats.totalNonWorkDetails),
           color: "#f76707",
           background: "#fff4e6",
         },
@@ -208,7 +212,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
     : [
         {
           label: "총 근무시간",
-          value: formatMinutes(stats.totalWorkMinutes),
+          value: formatMinutes(visibleStats.totalWorkMinutes),
           color: "#2b8a3e",
           background: "#ebfbee",
         },
@@ -223,7 +227,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
           ? [
               {
                 label: "야간근로",
-                value: formatMinutes(stats.totalNightWorkMinutes),
+                value: formatMinutes(visibleStats.totalNightWorkMinutes),
                 color: "#7048e8",
                 background: "#f3f0ff",
               },
@@ -231,8 +235,8 @@ function StatsPage({ schedules = {}, employees = [] }) {
           : []),
         {
           label: "휴무/연차/기타",
-          value: `${stats.totalNonWork}건`,
-          detail: formatNonWorkDetails(stats.totalNonWorkDetails),
+          value: `${visibleStats.totalNonWork}건`,
+          detail: formatNonWorkDetails(visibleStats.totalNonWorkDetails),
           color: "#f76707",
           background: "#fff4e6",
         },
@@ -389,7 +393,7 @@ function StatsPage({ schedules = {}, employees = [] }) {
               fontSize: "14px",
             }}
           >
-            선택한 기간에 근무한 직원이 없습니다.
+            선택한 기간에 등록된 스케줄이 없습니다.
           </div>
         ) : isEmployeeSelected ? (
           <EmployeeStatCard
@@ -491,6 +495,35 @@ function sortEmployeeStats([nameA, employeeA], [nameB, employeeB]) {
   }
 
   return nameA.localeCompare(nameB, "ko");
+}
+
+function aggregateEmployeeStats(employeeStats) {
+  return employeeStats.reduce(
+    (acc, [, employee]) => {
+      acc.totalWork += employee.work;
+      acc.totalWorkMinutes += employee.workMinutes;
+      acc.totalNightWorkMinutes += employee.nightWorkMinutes;
+      acc.totalWeekendWork += employee.weekendWork;
+      acc.totalWeekendWorkMinutes += employee.weekendWorkMinutes;
+      acc.totalNonWork += employee.nonWork;
+
+      Object.entries(employee.nonWorkDetails).forEach(([label, count]) => {
+        acc.totalNonWorkDetails[label] =
+          (acc.totalNonWorkDetails[label] || 0) + count;
+      });
+
+      return acc;
+    },
+    {
+      totalWork: 0,
+      totalWorkMinutes: 0,
+      totalNightWorkMinutes: 0,
+      totalWeekendWork: 0,
+      totalWeekendWorkMinutes: 0,
+      totalNonWork: 0,
+      totalNonWorkDetails: {},
+    },
+  );
 }
 
 function formatNonWorkDetails(details) {
@@ -643,7 +676,7 @@ function EmployeeStatCard({ name, employee, hasNightWork, variant = "list" }) {
             />
           )}
           <CompactStat
-            label="휴무/연차"
+            label="휴무/연차/기타"
             value={`${employee.nonWork}`}
             color="#f76707"
           />

@@ -1,112 +1,142 @@
-import { useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { FiCalendar } from "react-icons/fi";
 
+import { useAuth } from "../contexts/useAuth";
+import {
+  defaultEmployees,
+  defaultPatternTemplates,
+  defaultSchedules,
+  defaultShiftTypes,
+} from "../data/defaultData";
 import MainLayout from "../layouts/MainLayout";
-
 import CalendarPage from "../pages/CalendarPage";
-import StatsPage from "../pages/StatsPage";
 import EmployeesPage from "../pages/EmployeesPage";
-import SettingsPage from "../pages/SettingsPage";
 import HelpPage from "../pages/HelpPage";
+import SettingsPage from "../pages/SettingsPage";
+import StatsPage from "../pages/StatsPage";
+import AuthPage from "../pages/AuthPage";
+import PendingApprovalPage from "../pages/PendingApprovalPage";
+import WorkspaceSetupPage from "../pages/WorkspaceSetupPage";
+import {
+  approveWorkspaceMember,
+  loadWorkspaceAppData,
+  rejectWorkspaceMember,
+} from "../services/workspaceService";
 
-const initialShiftTypes = [
-  {
-    name: "오전",
-    icon: "☀️",
-    color: "#4dabf7",
-    startTime: "09:00",
-    endTime: "13:00",
-    category: "WORK",
-  },
-  {
-    name: "오후",
-    icon: "🌤️",
-    color: "#20c997",
-    startTime: "13:00",
-    endTime: "18:00",
-    category: "WORK",
-  },
-  {
-    name: "야간",
-    icon: "🌙",
-    color: "#845ef7",
-    startTime: "22:00",
-    endTime: "07:00",
-    category: "WORK",
-  },
-  {
-    name: "OFF",
-    icon: "🏠",
-    color: "#868e96",
-    startTime: "",
-    endTime: "",
-    category: "OFF",
-  },
-  {
-    name: "연차",
-    icon: "🏖️",
-    color: "#ff922b",
-    startTime: "",
-    endTime: "",
-    category: "VACATION",
-  },
-];
-const initialEmployees = [
-  { id: 1, name: "김민수", role: "ADMIN" },
-  { id: 2, name: "박지영", role: "USER" },
-  { id: 3, name: "이준호", role: "USER" },
-  { id: 4, name: "최유리", role: "USER" },
-  { id: 5, name: "정수민", role: "USER" },
-];
-const initialSchedules = {
-  "2026-05-20": [
-    {
-      name: "김민수",
-      type: "오전",
-      color: "#4dabf7",
-      startTime: "09:00",
-      endTime: "13:00",
-      category: "WORK",
-    },
-    {
-      name: "박지영",
-      type: "OFF",
-      color: "#868e96",
-      startTime: "",
-      endTime: "",
-      category: "OFF",
-    },
-  ],
-  "2026-05-21": [
-    {
-      name: "이준호",
-      type: "야간",
-      color: "#845ef7",
-      startTime: "22:00",
-      endTime: "07:00",
-      category: "WORK",
-    },
-  ],
-};
-const initialPatternTemplates = [
-  {
-    id: 1,
-    name: "기본 주간",
-    days: ["OFF", "오전", "오전", "오전", "오전", "오전", "OFF"],
-  },
-  {
-    id: 2,
-    name: "야간 주간",
-    days: ["OFF", "야간", "야간", "야간", "야간", "OFF", "OFF"],
-  },
-];
 function AppRouter() {
-  const [shiftTypes, setShiftTypes] = useState(initialShiftTypes);
-  const [employees, setEmployees] = useState(initialEmployees);
-  const [schedules, setSchedules] = useState(initialSchedules);
+  const { user, loading: authLoading, isSupabaseConfigured } = useAuth();
+  const userId = user?.id;
+  const [shiftTypes, setShiftTypes] = useState(defaultShiftTypes);
+  const [employees, setEmployees] = useState(defaultEmployees);
+  const [schedules, setSchedules] = useState(defaultSchedules);
   const [patternTemplates, setPatternTemplates] = useState(
-    initialPatternTemplates,
+    defaultPatternTemplates,
   );
+  const [workspace, setWorkspace] = useState(null);
+  const [memberRole, setMemberRole] = useState(null);
+  const [pendingMembers, setPendingMembers] = useState([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [hasLoadedData, setHasLoadedData] = useState(false);
+  const [loadedUserId, setLoadedUserId] = useState(null);
+  const [dataError, setDataError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!userId || !isSupabaseConfigured) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    async function loadData() {
+      setDataLoading(true);
+      setHasLoadedData(false);
+      setDataError("");
+
+      try {
+        const appData = await loadWorkspaceAppData();
+
+        if (isCancelled) return;
+
+        setWorkspace(appData.workspace);
+        setMemberRole(appData.memberRole);
+        setPendingMembers(appData.pendingMembers);
+        setShiftTypes(appData.shiftTypes);
+        setEmployees(appData.employees);
+        setSchedules(appData.schedules);
+        setPatternTemplates(appData.patternTemplates);
+      } catch (error) {
+        if (!isCancelled) {
+          setDataError(error.message || "데이터를 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setDataLoading(false);
+          setHasLoadedData(true);
+          setLoadedUserId(userId);
+        }
+      }
+    }
+
+    loadData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isSupabaseConfigured, reloadKey, userId]);
+
+  if (authLoading) {
+    return <AppShellMessage title="로그인 상태를 확인하고 있습니다." />;
+  }
+
+  if (!isSupabaseConfigured || !user) {
+    return <AuthPage />;
+  }
+
+  if (dataLoading || !hasLoadedData || loadedUserId !== userId) {
+    return (
+      <AppShellMessage
+        title="근무표를 준비하고 있어요"
+        description="잠시만 기다려주세요."
+      />
+    );
+  }
+
+  if (dataError) {
+    return (
+      <AppShellMessage
+        title="데이터를 불러오지 못했습니다."
+        description={dataError}
+        actionLabel="다시 시도"
+        onAction={() => setReloadKey((prev) => prev + 1)}
+      />
+    );
+  }
+
+  if (!workspace) {
+    return (
+      <WorkspaceSetupPage
+        onComplete={() => setReloadKey((prev) => prev + 1)}
+      />
+    );
+  }
+
+  if (memberRole === "PENDING") {
+    return <PendingApprovalPage workspace={workspace} />;
+  }
+
+  const reloadData = () => setReloadKey((prev) => prev + 1);
+
+  const handleApproveMember = async (targetUserId) => {
+    await approveWorkspaceMember(workspace.id, targetUserId);
+    reloadData();
+  };
+
+  const handleRejectMember = async (targetUserId) => {
+    await rejectWorkspaceMember(workspace.id, targetUserId);
+    reloadData();
+  };
 
   return (
     <BrowserRouter>
@@ -116,11 +146,13 @@ function AppRouter() {
             path="/"
             element={
               <CalendarPage
+                workspace={workspace}
                 shiftTypes={shiftTypes}
                 employees={employees}
                 schedules={schedules}
                 setSchedules={setSchedules}
                 patternTemplates={patternTemplates}
+                onDataChanged={reloadData}
               />
             }
           />
@@ -134,10 +166,12 @@ function AppRouter() {
             path="/employees"
             element={
               <EmployeesPage
+                workspace={workspace}
                 employees={employees}
                 setEmployees={setEmployees}
                 schedules={schedules}
                 setSchedules={setSchedules}
+                onDataChanged={reloadData}
               />
             }
           />
@@ -151,6 +185,12 @@ function AppRouter() {
                 setSchedules={setSchedules}
                 patternTemplates={patternTemplates}
                 setPatternTemplates={setPatternTemplates}
+                workspace={workspace}
+                memberRole={memberRole}
+                pendingMembers={pendingMembers}
+                onApproveMember={handleApproveMember}
+                onRejectMember={handleRejectMember}
+                onDataChanged={reloadData}
               />
             }
           />
@@ -158,6 +198,83 @@ function AppRouter() {
         </Routes>
       </MainLayout>
     </BrowserRouter>
+  );
+}
+
+function AppShellMessage({ title, description, actionLabel, onAction }) {
+  return (
+    <div
+      style={{
+        maxWidth: "430px",
+        minHeight: "100vh",
+        margin: "0 auto",
+        background: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        textAlign: "center",
+      }}
+    >
+      <div>
+        <div
+          style={{
+            width: "46px",
+            height: "46px",
+            borderRadius: "16px",
+            background: "#edf4ff",
+            color: "#3182f6",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 14px",
+          }}
+        >
+          <FiCalendar size={22} />
+        </div>
+        <div
+          style={{
+            color: "#191f28",
+            fontSize: "18px",
+            fontWeight: "900",
+            marginBottom: description ? "8px" : 0,
+          }}
+        >
+          {title}
+        </div>
+        {description && (
+          <div
+            style={{
+              color: "#868e96",
+              fontSize: "13px",
+              fontWeight: "700",
+              lineHeight: "1.45",
+              marginBottom: "14px",
+            }}
+          >
+            {description}
+          </div>
+        )}
+        {actionLabel && (
+          <button
+            type="button"
+            onClick={onAction}
+            style={{
+              border: "none",
+              background: "#3182f6",
+              color: "#fff",
+              borderRadius: "10px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "900",
+              padding: "10px 14px",
+            }}
+          >
+            {actionLabel}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
