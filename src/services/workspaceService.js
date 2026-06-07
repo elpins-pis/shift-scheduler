@@ -13,6 +13,7 @@ export async function loadWorkspaceAppData() {
     return {
       workspace: null,
       memberRole: null,
+      currentEmployeeId: null,
       pendingMembers: [],
       employees: defaultEmployees,
       shiftTypes: defaultShiftTypes,
@@ -27,6 +28,7 @@ export async function loadWorkspaceAppData() {
     return {
       workspace,
       memberRole: role,
+      currentEmployeeId: membership.employeeId,
       pendingMembers: [],
       employees: defaultEmployees,
       shiftTypes: defaultShiftTypes,
@@ -49,6 +51,7 @@ export async function loadWorkspaceAppData() {
   return {
     workspace,
     memberRole: role,
+    currentEmployeeId: membership.employeeId,
     pendingMembers,
     employees,
     shiftTypes,
@@ -92,14 +95,26 @@ export async function joinWorkspaceByInviteCode(inviteCode) {
 }
 
 export async function createEmployee(workspaceId, employee, sortOrder) {
-  const { error } = await supabase.from("employees").insert({
-    workspace_id: workspaceId,
-    name: employee.name,
-    role: employee.role,
-    sort_order: sortOrder,
-    is_active: true,
-    inactive_at: null,
-    deleted_at: null,
+  const { error } = await supabase.rpc("save_employee", {
+    target_workspace_id: workspaceId,
+    target_employee_id: null,
+    employee_name: employee.name,
+    employee_email: employee.email,
+    employee_role: employee.role,
+    employee_sort_order: sortOrder,
+  });
+
+  if (error) throw error;
+}
+
+export async function updateEmployee(employeeId, employee) {
+  const { error } = await supabase.rpc("save_employee", {
+    target_workspace_id: employee.workspaceId,
+    target_employee_id: employeeId,
+    employee_name: employee.name,
+    employee_email: employee.email,
+    employee_role: employee.role,
+    employee_sort_order: employee.sortOrder ?? null,
   });
 
   if (error) throw error;
@@ -304,6 +319,7 @@ async function getCurrentWorkspaceMembership() {
     .select(
       `
         role,
+        employee_id,
         user_email,
         workspaces (
           id,
@@ -321,6 +337,7 @@ async function getCurrentWorkspaceMembership() {
 
   return {
     role: data[0].role,
+    employeeId: data[0].employee_id,
     workspace: data[0].workspaces,
   };
 }
@@ -353,7 +370,7 @@ async function seedDefaultShiftTypesIfNeeded(workspaceId) {
 async function fetchEmployees(workspaceId) {
   const { data, error } = await supabase
     .from("employees")
-    .select("id, name, role, sort_order, is_active, inactive_at, deleted_at")
+    .select("id, name, email, role, sort_order, is_active, inactive_at, deleted_at")
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
     .order("sort_order", { ascending: true })
@@ -364,6 +381,7 @@ async function fetchEmployees(workspaceId) {
   return data.map((employee) => ({
     id: employee.id,
     name: employee.name,
+    email: employee.email,
     role: employee.role,
     isActive: employee.is_active !== false,
     inactiveAt: employee.inactive_at,
@@ -374,7 +392,15 @@ async function fetchEmployees(workspaceId) {
 async function fetchPendingMembers(workspaceId) {
   const { data, error } = await supabase
     .from("workspace_members")
-    .select("user_id, user_email, created_at")
+    .select(
+      `
+        user_id,
+        user_email,
+        employee_id,
+        created_at,
+        employees ( name, email )
+      `,
+    )
     .eq("workspace_id", workspaceId)
     .eq("role", "PENDING")
     .order("created_at", { ascending: true });
@@ -384,6 +410,9 @@ async function fetchPendingMembers(workspaceId) {
   return data.map((member) => ({
     userId: member.user_id,
     email: member.user_email || "이메일 없음",
+    employeeId: member.employee_id,
+    employeeName: member.employees?.name || "직원 미선택",
+    employeeEmail: member.employees?.email || "",
     createdAt: member.created_at,
   }));
 }

@@ -35,6 +35,7 @@ function AppRouter() {
   );
   const [workspace, setWorkspace] = useState(null);
   const [memberRole, setMemberRole] = useState(null);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState(null);
   const [pendingMembers, setPendingMembers] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [hasLoadedData, setHasLoadedData] = useState(false);
@@ -61,6 +62,7 @@ function AppRouter() {
 
         setWorkspace(appData.workspace);
         setMemberRole(appData.memberRole);
+        setCurrentEmployeeId(appData.currentEmployeeId);
         setPendingMembers(appData.pendingMembers);
         setShiftTypes(appData.shiftTypes);
         setEmployees(appData.employees);
@@ -156,13 +158,20 @@ function AppRouter() {
                 patternTemplates={patternTemplates}
                 onDataChanged={reloadData}
                 canManage={isAdmin}
+                memberRole={memberRole}
+                currentEmployeeId={currentEmployeeId}
               />
             }
           />
           <Route
             path="/stats"
             element={
-              <StatsPage schedules={schedules} employees={employees} />
+              <StatsPage
+                schedules={schedules}
+                employees={employees}
+                memberRole={memberRole}
+                currentEmployeeId={currentEmployeeId}
+              />
             }
           />
           <Route

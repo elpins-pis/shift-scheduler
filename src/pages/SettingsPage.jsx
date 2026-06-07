@@ -610,6 +610,31 @@ function SettingsPage({
                     marginTop: "4px",
                   }}
                 >
+                  요청 직원: {member.employeeName}
+                </div>
+                {member.employeeEmail && (
+                  <div
+                    style={{
+                      color: "#868e96",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      marginTop: "3px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {member.employeeEmail}
+                  </div>
+                )}
+                <div
+                  style={{
+                    color: "#adb5bd",
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    marginTop: "3px",
+                  }}
+                >
                   승인 전까지 스케줄을 볼 수 없습니다.
                 </div>
               </div>
